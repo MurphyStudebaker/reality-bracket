@@ -1,86 +1,132 @@
-import { useState } from "react";
-import { Home, Users, Trophy } from "lucide-react";
-import HomeScreen from "./components/HomeScreen";
-import RosterScreen from "./components/RosterScreen";
-import LeagueScreen from "./components/LeagueScreen";
+import { useState } from 'react';
+import { Home, Users, Trophy, Bell, UserCircle } from 'lucide-react';
+import HomePage from './components/pages/HomePage';
+import RosterPage from './components/pages/RosterPage';
+import LeaguePage from './components/pages/LeaguePage';
+import LatestActivityDrawer from './components/drawers/LatestActivityDrawer';
+import ProfileDrawer from './components/drawers/ProfileDrawer';
 
-type Screen = "home" | "roster" | "league";
+type ScreenType = 'home' | 'roster' | 'league';
+type League = { id: string; name: string; season: string; memberCount: number; inviteCode: string };
 
 export default function App() {
-  const [activeScreen, setActiveScreen] =
-    useState<Screen>("home");
-  const [selectedLeagueId, setSelectedLeagueId] =
-    useState<number>(1);
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
+  const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
 
-  const handleLeagueClick = (leagueId: number) => {
-    setSelectedLeagueId(leagueId);
-    setActiveScreen("league");
+  const navItems = [
+    { id: 'home' as ScreenType, label: 'Home', icon: Home },
+    { id: 'roster' as ScreenType, label: 'Roster', icon: Users },
+    { id: 'league' as ScreenType, label: 'League', icon: Trophy },
+  ];
+
+  const handleNavigation = (screen: ScreenType) => {
+    setCurrentScreen(screen);
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-20 dark">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
       {/* Header */}
-      <header className="bg-black text-white p-4 sticky top-0 z-10 shadow-lg border-b border-neutral-800">
-        <h1 className="text-left font-bold">
-          Reality Bracket
-        </h1>
-      </header>
-
-      {/* Screen Content */}
-      <main className="max-w-md mx-auto">
-        {activeScreen === "home" && (
-          <HomeScreen onLeagueClick={handleLeagueClick} />
-        )}
-        {activeScreen === "roster" && <RosterScreen />}
-        {activeScreen === "league" && (
-          <LeagueScreen initialLeagueId={selectedLeagueId} />
-        )}
-      </main>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-black border-t border-neutral-800 shadow-[0_-4px_16px_rgba(0,0,0,0.8)]">
-        <div className="max-w-md mx-auto flex justify-around">
+      <header className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
+        {/* Title - Far Left on Desktop */}
+        <h1 className="text-xl lg:text-2xl whitespace-nowrap" style={{ color: '#BFFF0B' }}>Reality Bracket</h1>
+        
+        {/* Desktop Navigation - Center */}
+        <nav className="hidden lg:flex items-center gap-8 absolute left-1/2 transform -translate-x-1/2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentScreen === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavigation(item.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                  isActive
+                    ? 'text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+                style={isActive ? { color: '#BFFF0B' } : {}}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        
+        {/* Right Side Buttons */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveScreen("home")}
-            className={`flex-1 flex flex-col items-center py-3 px-4 transition-colors ${
-              activeScreen === "home"
-                ? "text-[#BFFF0B]"
-                : "text-neutral-500 hover:text-neutral-400"
-            }`}
+            onClick={() => setIsActivityDrawerOpen(true)}
+            className="p-2 rounded-lg border-2 transition-all hover:bg-slate-800"
+            style={{ 
+              borderColor: '#BFFF0B',
+              color: '#BFFF0B'
+            }}
+            aria-label="View latest activity"
           >
-            <Home className="w-6 h-6" />
-            <span className="text-xs mt-1 font-semibold">
-              Home
-            </span>
+            <Bell className="w-5 h-5" />
           </button>
+          
           <button
-            onClick={() => setActiveScreen("roster")}
-            className={`flex-1 flex flex-col items-center py-3 px-4 transition-colors ${
-              activeScreen === "roster"
-                ? "text-[#BFFF0B]"
-                : "text-neutral-500 hover:text-neutral-400"
-            }`}
+            onClick={() => setIsProfileDrawerOpen(true)}
+            className="p-2 rounded-lg border-2 border-slate-700 transition-all hover:bg-slate-800 text-slate-400 hover:text-slate-300"
+            aria-label="Account settings"
           >
-            <Users className="w-6 h-6" />
-            <span className="text-xs mt-1 font-semibold">
-              Rosters
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveScreen("league")}
-            className={`flex-1 flex flex-col items-center py-3 px-4 transition-colors ${
-              activeScreen === "league"
-                ? "text-[#BFFF0B]"
-                : "text-neutral-500 hover:text-neutral-400"
-            }`}
-          >
-            <Trophy className="w-6 h-6" />
-            <span className="text-xs mt-1 font-semibold">
-              Leagues
-            </span>
+            <UserCircle className="w-5 h-5" />
           </button>
         </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden pb-16 md:pb-20 lg:pb-0">
+        <div className="flex-1 overflow-y-auto">
+          {currentScreen === 'home' && (
+            <HomePage 
+              onLeagueClick={(league) => {
+                setSelectedLeague(league);
+                setCurrentScreen('league');
+              }}
+            />
+          )}
+          {currentScreen === 'roster' && <RosterPage />}
+          {currentScreen === 'league' && <LeaguePage initialLeague={selectedLeague} />}
+        </div>
+      </main>
+
+      {/* Bottom Navigation Tabs - Mobile/Tablet Only */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-slate-800 bg-slate-900/95 backdrop-blur-sm z-30">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentScreen === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleNavigation(item.id)}
+              className="flex-1 flex flex-col items-center gap-1 py-3 md:py-4 transition-all"
+              style={{
+                color: isActive ? '#BFFF0B' : '#94a3b8'
+              }}
+            >
+              <Icon className="w-6 h-6" />
+              <span className="text-xs">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
+
+      {/* Latest Activity Drawer */}
+      <LatestActivityDrawer 
+        isOpen={isActivityDrawerOpen}
+        onClose={() => setIsActivityDrawerOpen(false)}
+      />
+
+      {/* Profile Drawer */}
+      <ProfileDrawer 
+        isOpen={isProfileDrawerOpen}
+        onClose={() => setIsProfileDrawerOpen(false)}
+      />
     </div>
   );
 }
