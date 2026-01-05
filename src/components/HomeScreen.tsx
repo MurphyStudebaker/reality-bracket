@@ -89,7 +89,7 @@ export default function HomeScreen({ onLeagueClick }: HomeScreenProps) {
                 leagueName={viewModel.leagueName}
                 selectedSeason={viewModel.selectedSeason}
                 draftDate={viewModel.draftDate}
-                seasons={viewModel.seasons}
+                seasons={viewModel.availableSeasonsForCreate}
                 onLeagueNameChange={viewModel.setLeagueName}
                 onSeasonSelect={viewModel.handleSeasonSelect}
                 onDraftDateChange={viewModel.handleDraftDateChange}
@@ -113,13 +113,21 @@ export default function HomeScreen({ onLeagueClick }: HomeScreenProps) {
           </Badge>
         </div>
         <div className="space-y-3">
-          {viewModel.myLeagues.map((league) => (
-            <LeagueCard
-              key={league.id}
-              league={league}
-              onClick={onLeagueClick}
-            />
-          ))}
+          {viewModel.isLoadingLeagues ? (
+            <div className="text-center text-neutral-400 py-8">Loading your leagues...</div>
+          ) : viewModel.myLeagues.length === 0 ? (
+            <div className="text-center text-neutral-400 py-8">
+              You haven't joined any leagues yet. Create or join a league to get started!
+            </div>
+          ) : (
+            viewModel.myLeagues.map((league) => (
+              <LeagueCard
+                key={league.id}
+                league={league}
+                onClick={onLeagueClick}
+              />
+            ))
+          )}
         </div>
       </section>
 

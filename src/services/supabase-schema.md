@@ -6,15 +6,18 @@ This document outlines the database schema for the Reality Bracket app.
 
 ### users
 Stores user account information.
+**Note:** The `id` field should reference `auth.users(id)` to link with Supabase Auth.
 
 ```sql
 CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   username TEXT UNIQUE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
+
+**Important:** A database trigger automatically creates a user record when someone signs up via Supabase Auth. See `migrations/create_user_on_signup.sql` for the trigger implementation.
 
 ### seasons
 Stores reality show seasons.
@@ -153,6 +156,17 @@ ALTER TABLE activity_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can read own data"
   ON users FOR SELECT
   USING (auth.uid() = id);
+
+-- Users can insert their own data (for signup)
+CREATE POLICY "Users can insert own data"
+  ON users FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- Users can update their own data
+CREATE POLICY "Users can update own data"
+  ON users FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
 -- League members can read league data
 CREATE POLICY "League members can read league"

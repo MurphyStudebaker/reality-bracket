@@ -1,8 +1,10 @@
 // ViewModel for HomeScreen - handles all business logic and state management
 
 import { useState, useEffect } from "react";
-import { Season } from "../models/types";
-import { leagues, seasons, leagueNameSuggestions } from "../models/mockData";
+import { Season, League } from "../models/types";
+import { leagueNameSuggestions } from "../models/mockData";
+import { SupabaseService } from "../services/supabaseService";
+import type { Season as DbSeason } from "../models";
 
 export const useHomeViewModel = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -12,6 +14,147 @@ export const useHomeViewModel = () => {
   const [draftDate, setDraftDate] = useState<Date>(new Date(2026, 1, 14));
   const [viewingSeason, setViewingSeason] = useState<Season | null>(null);
   const [activeTab, setActiveTab] = useState("join");
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [availableSeasonsForCreate, setAvailableSeasonsForCreate] = useState<Season[]>([]);
+  const [dbSeasons, setDbSeasons] = useState<DbSeason[]>([]); // Store database seasons for ID mapping
+  const [isLoadingSeasons, setIsLoadingSeasons] = useState(true);
+  const [isCreatingLeague, setIsCreatingLeague] = useState(false);
+  const [isJoiningLeague, setIsJoiningLeague] = useState(false);
+  const [createLeagueError, setCreateLeagueError] = useState<string | null>(null);
+  const [joinLeagueError, setJoinLeagueError] = useState<string | null>(null);
+  const [myLeagues, setMyLeagues] = useState<League[]>([]);
+  const [isLoadingLeagues, setIsLoadingLeagues] = useState(true);
+
+  // Helper function to convert UUID string to number (for UI compatibility)
+  const uuidToNumber = (uuid: string): number => {
+    // Simple hash of UUID to number
+    let hash = 0;
+    for (let i = 0; i < uuid.length; i++) {
+      const char = uuid.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  // Helper function to refresh leagues list
+  const refreshLeagues = async () => {
+    try {
+      const user = await SupabaseService.getCurrentUser();
+      if (!user) {
+        setMyLeagues([]);
+        return;
+      }
+
+      const uiLeaguesData = await SupabaseService.getUILeaguesByUserId(user.id);
+      
+      // Transform to UI League format
+      const transformedLeagues: League[] = uiLeaguesData.map((data) => ({
+        id: uuidToNumber(data.league.id), // Convert UUID to number
+        name: data.league.name,
+        season: data.seasonName,
+        members: data.memberCount,
+        rank: data.userRank,
+        points: data.userPoints,
+      }));
+
+      setMyLeagues(transformedLeagues);
+    } catch (error) {
+      console.error("Error refreshing leagues:", error);
+    }
+  };
+
+  // Fetch user's leagues from Supabase
+  useEffect(() => {
+    const fetchMyLeagues = async () => {
+      try {
+        setIsLoadingLeagues(true);
+        await refreshLeagues();
+      } catch (error) {
+        console.error("Error fetching user leagues:", error);
+        setMyLeagues([]);
+      } finally {
+        setIsLoadingLeagues(false);
+      }
+    };
+
+    fetchMyLeagues();
+  }, []);
+
+  // Fetch seasons from Supabase
+  useEffect(() => {
+    const fetchSeasons = async () => {
+      try {
+        setIsLoadingSeasons(true);
+        const fetchedDbSeasons = await SupabaseService.getSeasons();
+        setDbSeasons(fetchedDbSeasons);
+        
+        // Filter database seasons for Create League modal FIRST - only show "active" or "upcoming"
+        const filteredDbSeasonsForCreate = fetchedDbSeasons.filter(
+          (dbSeason) => {
+            const status = dbSeason.status;
+            return status === "active" || status === "upcoming";
+          }
+        );
+        
+        // Transform filtered seasons for Create League modal
+        const filteredSeasonsForCreate: Season[] = filteredDbSeasonsForCreate.map((dbSeason: DbSeason) => {
+          // Map status: 'active' -> 'live', 'upcoming' -> archived (for UI consistency)
+          let status: "live" | "completed" | "archived" = "archived";
+          if (dbSeason.status === "active") status = "live";
+
+          // Generate subtitle based on status
+          let subtitle = "Archive";
+          if (dbSeason.status === "active") subtitle = "Current Season";
+          else if (dbSeason.status === "upcoming") subtitle = "Upcoming Season";
+
+          return {
+            id: dbSeason.number, // Use season number as id for UI
+            title: dbSeason.name || `Season ${dbSeason.number}`,
+            subtitle,
+            image: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=240&fit=crop", // Default image
+            status,
+            leagues: 0,
+          };
+        });
+        setAvailableSeasonsForCreate(filteredSeasonsForCreate);
+        
+        // Transform ALL database Season to UI Season type (for general display)
+        const transformedSeasons: Season[] = fetchedDbSeasons.map((dbSeason: DbSeason) => {
+          // Map status: 'active' -> 'live', 'completed' -> 'completed', 'upcoming' -> 'archived'
+          let status: "live" | "completed" | "archived" = "archived";
+          if (dbSeason.status === "active") status = "live";
+          else if (dbSeason.status === "completed") status = "completed";
+
+          // Generate subtitle based on status
+          let subtitle = "Archive";
+          if (dbSeason.status === "active") subtitle = "Current Season";
+          else if (dbSeason.status === "completed") subtitle = "Recently Completed";
+
+          return {
+            id: dbSeason.number, // Use season number as id for UI
+            title: dbSeason.name || `Season ${dbSeason.number}`,
+            subtitle,
+            image: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=240&fit=crop", // Default image
+            status,
+            leagues: 0, // TODO: Query league count from database
+          };
+        });
+
+        setSeasons(transformedSeasons);
+      } catch (error) {
+        console.error("Error fetching seasons:", error);
+        // Fallback to empty array on error
+        setSeasons([]);
+        setAvailableSeasonsForCreate([]);
+        setDbSeasons([]);
+      } finally {
+        setIsLoadingSeasons(false);
+      }
+    };
+
+    fetchSeasons();
+  }, []);
 
   // Auto-populate league name with a random suggestion when create tab is opened
   useEffect(() => {
@@ -28,24 +171,88 @@ export const useHomeViewModel = () => {
   const canCreateLeague = leagueName && selectedSeason && draftDate;
 
   // Actions
-  const handleJoinLeague = () => {
+  const handleJoinLeague = async () => {
     if (!canJoinLeague) return;
-    // In a real app, this would call an API to join the league
-    console.log("Joining league with code:", inviteCode);
-    setIsSheetOpen(false);
-    // TODO: Navigate to the league or show success message
+    
+    try {
+      setIsJoiningLeague(true);
+      setJoinLeagueError(null);
+      
+      // Get current user
+      const user = await SupabaseService.getCurrentUser();
+      if (!user) {
+        setJoinLeagueError("You must be logged in to join a league");
+        setIsJoiningLeague(false);
+        return;
+      }
+
+      // Join league
+      const league = await SupabaseService.joinLeagueByInviteCode(inviteCode, user.id);
+      
+      if (league) {
+        // Success - reset form and close
+        setInviteCode("");
+        setIsSheetOpen(false);
+        // Refresh leagues list
+        await refreshLeagues();
+      }
+    } catch (error: any) {
+      console.error("Error joining league:", error);
+      setJoinLeagueError(error?.message || "Failed to join league. Please check the invite code and try again.");
+    } finally {
+      setIsJoiningLeague(false);
+    }
   };
 
-  const handleCreateLeague = () => {
+  const handleCreateLeague = async () => {
     if (!canCreateLeague) return;
-    // In a real app, this would call an API to create the league
-    console.log("Creating league:", {
-      name: leagueName,
-      seasonId: selectedSeason,
-      draftDate,
-    });
-    setIsSheetOpen(false);
-    // TODO: Navigate to the new league or show success message
+    
+    try {
+      setIsCreatingLeague(true);
+      setCreateLeagueError(null);
+      
+      // Get current user
+      const user = await SupabaseService.getCurrentUser();
+      if (!user) {
+        setCreateLeagueError("You must be logged in to create a league");
+        setIsCreatingLeague(false);
+        return;
+      }
+
+      // Map UI season number to database season UUID
+      const dbSeason = dbSeasons.find(s => s.number === selectedSeason);
+      if (!dbSeason) {
+        setCreateLeagueError("Invalid season selected");
+        setIsCreatingLeague(false);
+        return;
+      }
+
+      // Format draft date as YYYY-MM-DD
+      const draftDateStr = draftDate.toISOString().split('T')[0];
+
+      // Create league
+      const league = await SupabaseService.createLeague(
+        leagueName,
+        dbSeason.id,
+        user.id,
+        draftDateStr
+      );
+      
+      if (league) {
+        // Success - reset form and close
+        setLeagueName("");
+        setSelectedSeason(null);
+        setDraftDate(new Date(2026, 1, 14));
+        setIsSheetOpen(false);
+        // Refresh leagues list
+        await refreshLeagues();
+      }
+    } catch (error: any) {
+      console.error("Error creating league:", error);
+      setCreateLeagueError(error?.message || "Failed to create league. Please try again.");
+    } finally {
+      setIsCreatingLeague(false);
+    }
   };
 
   const handleSeasonSelect = (seasonId: number) => {
@@ -75,8 +282,19 @@ export const useHomeViewModel = () => {
     activeTab,
 
     // Data
-    myLeagues: leagues,
+    myLeagues,
+    isLoadingLeagues,
     seasons,
+    availableSeasonsForCreate, // Filtered seasons for Create League modal
+    isLoadingSeasons,
+
+    // Loading states
+    isCreatingLeague,
+    isJoiningLeague,
+
+    // Errors
+    createLeagueError,
+    joinLeagueError,
 
     // Computed
     canJoinLeague,
@@ -93,5 +311,8 @@ export const useHomeViewModel = () => {
     handleCreateLeague,
     handleViewSeason,
     handleBackFromSeason,
+    // Error clearing
+    clearCreateLeagueError: () => setCreateLeagueError(null),
+    clearJoinLeagueError: () => setJoinLeagueError(null),
   };
 };

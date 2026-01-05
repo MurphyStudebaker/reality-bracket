@@ -5,11 +5,15 @@ import RosterPage from './components/pages/RosterPage';
 import LeaguePage from './components/pages/LeaguePage';
 import LatestActivityDrawer from './components/drawers/LatestActivityDrawer';
 import ProfileDrawer from './components/drawers/ProfileDrawer';
+import { useAuthViewModel } from './viewmodels/auth.viewmodel';
 
 type ScreenType = 'home' | 'roster' | 'league';
 type League = { id: string; name: string; season: string; memberCount: number; inviteCode: string };
 
 export default function App() {
+  // Initialize auth at app level to restore session on page load
+  useAuthViewModel();
+  
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);

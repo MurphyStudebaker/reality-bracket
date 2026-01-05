@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { X, Camera, Check, Mail } from 'lucide-react';
+import { X, Camera, Check, Mail, LogOut } from 'lucide-react';
 import { myLeagues } from '../../data/mockData';
+import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 
 interface ProfileDrawerProps {
   isOpen: boolean;
@@ -8,6 +12,7 @@ interface ProfileDrawerProps {
 }
 
 export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
+  const auth = useAuthViewModel();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
   const [tempUsername, setTempUsername] = useState('');
@@ -15,6 +20,19 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     'league-1': 'SurvivorFan47',
     'league-2': 'SurvivorFan47',
   });
+
+  // Login/Signup form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupUsername, setSignupUsername] = useState('');
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  
+  // Password reset state
+  const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   if (!isOpen) return null;
 
@@ -44,6 +62,47 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const cancelEditing = () => {
     setEditingLeagueId(null);
     setTempUsername('');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const success = await auth.signIn(loginEmail, loginPassword);
+    if (success) {
+      setLoginEmail('');
+      setLoginPassword('');
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const success = await auth.signUp(signupEmail, signupPassword, signupUsername);
+    if (success) {
+      setSignupEmail('');
+      setSignupPassword('');
+      setSignupUsername('');
+    }
+  };
+
+  const handleSignOut = async () => {
+    await auth.signOut();
+    onClose();
+  };
+
+  const handleRequestPasswordReset = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await auth.requestPasswordReset(resetEmail || loginEmail);
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      return;
+    }
+    const success = await auth.updatePassword(newPassword);
+    if (success) {
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   return (
@@ -76,7 +135,218 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {/* Profile Image Section */}
+            {auth.isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-slate-400">Loading...</div>
+              </div>
+            ) : !auth.isAuthenticated ? (
+              /* Login/Signup Forms or Password Reset/Update */
+              <div className="space-y-6">
+                {/* Password Recovery Form - shown when user clicks reset link */}
+                {auth.isPasswordRecovery ? (
+                  <div>
+                    <h3 className="text-xl mb-4">Reset Password</h3>
+                    <form onSubmit={handleUpdatePassword} className="space-y-4">
+                      {auth.error && (
+                        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-sm text-red-400">
+                          {auth.error}
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">New Password</label>
+                        <Input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          required
+                          minLength={6}
+                          className="bg-slate-800/50 border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">Confirm Password</label>
+                        <Input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          required
+                          minLength={6}
+                          className="bg-slate-800/50 border-slate-700 text-white"
+                        />
+                        {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                          <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={auth.isLoading || newPassword !== confirmPassword || !newPassword || !confirmPassword}
+                        className="w-full"
+                        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                      >
+                        {auth.isLoading ? 'Updating...' : 'Update Password'}
+                      </Button>
+                    </form>
+                  </div>
+                ) : auth.isPasswordResetRequested ? (
+                  /* Password Reset Requested Success Message */
+                  <div>
+                    <h3 className="text-xl mb-4">Check Your Email</h3>
+                    <div className="bg-green-500/10 border border-green-500/50 rounded-lg p-4 text-sm text-green-400 mb-4">
+                      <p className="mb-2">Password reset email sent!</p>
+                      <p>Please check your email and click the link to reset your password.</p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        auth.clearPasswordResetRequested();
+                        setResetEmail('');
+                      }}
+                      className="w-full"
+                      style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                    >
+                      Back to Login
+                    </Button>
+                  </div>
+                ) : (
+                  /* Login/Signup Tabs */
+                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
+                    <TabsList className="w-full bg-slate-800/50">
+                      <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
+                      <TabsTrigger value="signup" className="flex-1">Sign Up</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="login" className="mt-6">
+                      <form onSubmit={handleLogin} className="space-y-4">
+                        {auth.error && (
+                          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-sm text-red-400">
+                            {auth.error}
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-sm text-slate-400 mb-2 block">Email</label>
+                          <Input
+                            type="email"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            required
+                            className="bg-slate-800/50 border-slate-700 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-slate-400 mb-2 block">Password</label>
+                          <Input
+                            type="password"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            required
+                            className="bg-slate-800/50 border-slate-700 text-white"
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setResetEmail(loginEmail);
+                              handleRequestPasswordReset(e);
+                            }}
+                            className="text-sm text-slate-400 hover:text-slate-300 underline"
+                          >
+                            Forgot Password?
+                          </button>
+                        </div>
+                        <Button
+                          type="submit"
+                          disabled={auth.isLoading}
+                          className="w-full"
+                          style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                        >
+                          {auth.isLoading ? 'Signing in...' : 'Sign In'}
+                        </Button>
+                      </form>
+                    </TabsContent>
+
+                  <TabsContent value="signup" className="mt-6">
+                    <form onSubmit={handleSignup} className="space-y-4">
+                      {auth.error && (
+                        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-sm text-red-400">
+                          {auth.error}
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">Username</label>
+                        <Input
+                          type="text"
+                          value={signupUsername}
+                          onChange={(e) => setSignupUsername(e.target.value)}
+                          placeholder="Choose a username"
+                          required
+                          className="bg-slate-800/50 border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">Email</label>
+                        <Input
+                          type="email"
+                          value={signupEmail}
+                          onChange={(e) => setSignupEmail(e.target.value)}
+                          placeholder="Enter your email"
+                          required
+                          className="bg-slate-800/50 border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-400 mb-2 block">Password</label>
+                        <Input
+                          type="password"
+                          value={signupPassword}
+                          onChange={(e) => setSignupPassword(e.target.value)}
+                          placeholder="Create a password"
+                          required
+                          minLength={6}
+                          className="bg-slate-800/50 border-slate-700 text-white"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={auth.isLoading}
+                        className="w-full"
+                        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                      >
+                        {auth.isLoading ? 'Creating account...' : 'Sign Up'}
+                      </Button>
+                    </form>
+                  </TabsContent>
+                </Tabs>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* User Info Section */}
+                <div className="mb-6">
+                  <div className="bg-slate-800/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-lg font-semibold">{auth.user?.username || 'User'}</p>
+                        <p className="text-sm text-slate-400">{auth.user?.email}</p>
+                      </div>
+                      <Button
+                        onClick={handleSignOut}
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-700 text-slate-300 hover:bg-slate-700"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Image Section */}
             <div className="mb-6">
               <h3 className="text-sm text-slate-400 mb-3">PROFILE IMAGE</h3>
               <div className="bg-slate-800/50 rounded-xl p-4">
@@ -191,24 +461,26 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               </div>
             </div>
 
-            {/* Support Section */}
-            <div>
-              <h3 className="text-sm text-slate-400 mb-3">SUPPORT</h3>
-              <a
-                href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
-                className="block bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(191, 255, 11, 0.1)' }}>
-                    <Mail className="w-5 h-5" style={{ color: '#BFFF0B' }} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="mb-1">Contact Support</p>
-                    <p className="text-xs text-slate-400">Get help or report an issue</p>
-                  </div>
+                {/* Support Section */}
+                <div>
+                  <h3 className="text-sm text-slate-400 mb-3">SUPPORT</h3>
+                  <a
+                    href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
+                    className="block bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(191, 255, 11, 0.1)' }}>
+                        <Mail className="w-5 h-5" style={{ color: '#BFFF0B' }} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="mb-1">Contact Support</p>
+                        <p className="text-xs text-slate-400">Get help or report an issue</p>
+                      </div>
+                    </div>
+                  </a>
                 </div>
-              </a>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>

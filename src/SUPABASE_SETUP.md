@@ -164,7 +164,25 @@ The app uses Supabase Auth. To enable:
 1. In Supabase dashboard, go to **Authentication** → **Providers**
 2. Enable **Email** provider
 3. Configure email templates if needed
-4. Update `useAuthViewModel` to use real auth methods
+4. **Run the authentication trigger migration:**
+   - Go to **SQL Editor** in your Supabase dashboard
+   - Open the file `src/services/migrations/create_user_on_signup.sql`
+   - Copy and paste the SQL into the editor
+   - Click **Run** to execute the migration
+   - This creates a trigger that automatically populates the `users` table when someone signs up
+
+**Important:** The `users` table must reference `auth.users(id)`. Update your table creation if needed:
+```sql
+ALTER TABLE users 
+  DROP CONSTRAINT IF EXISTS users_id_fkey,
+  ADD CONSTRAINT users_id_fkey 
+  FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+```
+
+The authentication flow is now fully implemented:
+- Users can sign up and sign in through the Profile Drawer (click the profile icon in the top right)
+- User records are automatically created in the `users` table when they sign up
+- The app tracks authentication state and updates the UI accordingly
 
 ## Troubleshooting
 
