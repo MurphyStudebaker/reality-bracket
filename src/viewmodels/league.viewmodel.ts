@@ -1,115 +1,89 @@
 // ViewModel for League Page - handles league standings and activity
 
-import { useState, useEffect } from 'react';
-import { SupabaseService } from '../services/supabaseService';
+import { useMemo } from 'react';
+import useSWR from 'swr';
+import { mutate } from 'swr';
+import { fetcher, createKey } from '../lib/swr';
 import type { LeagueStanding, League } from '../models';
 import { leagueStandings } from '../data/mockData';
 
 export const useLeagueViewModel = (leagueId: string) => {
-  const [standings, setStandings] = useState<LeagueStanding[]>([]);
-  const [league, setLeague] = useState<League | null>(null);
-  const [memberCount, setMemberCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Fetch league standings using SWR
+  const standingsKey = createKey('standings', leagueId);
+  const { data: standings = [], error: standingsError, isLoading: isLoadingStandings } = useSWR<LeagueStanding[]>(
+    standingsKey,
+    fetcher
+  );
 
-  // Fetch league standings
-  const fetchStandings = async () => {
-    try {
-      setIsLoading(true);
-      const data = await SupabaseService.getLeagueStandings(leagueId);
-      
-      if (data && data.length > 0) {
-        setStandings(data);
-      } else {
-        // Fallback to mock data
-        setStandings(leagueStandings);
-      }
-    } catch (err) {
-      console.error('Error fetching standings:', err);
-      setError('Failed to load standings');
-      // Fallback to mock data
-      setStandings(leagueStandings);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Fetch league member count using SWR
+  const memberCountKey = createKey('member-count', leagueId);
+  const { data: memberCount = 12, error: memberCountError } = useSWR<number>(
+    memberCountKey,
+    fetcher
+  );
 
-  // Fetch league member count
-  const fetchMemberCount = async () => {
-    try {
-      const count = await SupabaseService.getLeagueMemberCount(leagueId);
-      setMemberCount(count || 12); // Default to mock data
-    } catch (err) {
-      console.error('Error fetching member count:', err);
-      setMemberCount(12); // Default to mock data
+  // Use fallback data if SWR returns empty or error
+  const finalStandings = useMemo(() => {
+    if (standingsError || (standings.length === 0 && !isLoadingStandings)) {
+      return leagueStandings;
     }
-  };
+    return standings;
+  }, [standings, standingsError, isLoadingStandings]);
+
+  const finalMemberCount = useMemo(() => {
+    if (memberCountError) {
+      return 12;
+    }
+    return memberCount;
+  }, [memberCount, memberCountError]);
 
   // Get top 3 standings for podium
-  const getTopThree = (): LeagueStanding[] => {
-    return standings.slice(0, 3);
-  };
+  const topThree = useMemo(() => {
+    return finalStandings.slice(0, 3);
+  }, [finalStandings]);
 
   // Get remaining standings (4th place and below)
-  const getRemainingStandings = (): LeagueStanding[] => {
-    return standings.slice(3);
-  };
+  const remainingStandings = useMemo(() => {
+    return finalStandings.slice(3);
+  }, [finalStandings]);
 
   // Get league stats
-  const getLeagueStats = () => {
-    if (standings.length === 0) {
+  const leagueStats = useMemo(() => {
+    if (finalStandings.length === 0) {
       return {
         highestScore: 0,
         averageScore: 0,
-        totalMembers: memberCount,
+        totalMembers: finalMemberCount,
       };
     }
 
-    const highestScore = standings[0]?.points || 0;
+    const highestScore = finalStandings[0]?.points || 0;
     const averageScore = Math.round(
-      standings.reduce((sum, standing) => sum + standing.points, 0) / standings.length
+      finalStandings.reduce((sum, standing) => sum + standing.points, 0) / finalStandings.length
     );
 
     return {
       highestScore,
       averageScore,
-      totalMembers: memberCount,
+      totalMembers: finalMemberCount,
     };
+  }, [finalStandings, finalMemberCount]);
+
+  // Refresh function
+  const refreshStandings = async () => {
+    if (standingsKey) await mutate(standingsKey);
+    if (memberCountKey) await mutate(memberCountKey);
   };
 
-  // Initialize data
-  useEffect(() => {
-    fetchStandings();
-    fetchMemberCount();
-
-    // Set up real-time subscription for standings updates
-    // TODO: Implement Supabase real-time subscriptions
-    // const subscription = supabase
-    //   .channel('league-standings')
-    //   .on('postgres_changes', {
-    //     event: '*',
-    //     schema: 'public',
-    //     table: 'league_members',
-    //     filter: `league_id=eq.${leagueId}`
-    //   }, () => {
-    //     fetchStandings();
-    //   })
-    //   .subscribe();
-
-    // return () => {
-    //   subscription.unsubscribe();
-    // };
-  }, [leagueId]);
-
   return {
-    standings,
-    topThree: getTopThree(),
-    remainingStandings: getRemainingStandings(),
-    league,
-    memberCount,
-    leagueStats: getLeagueStats(),
-    isLoading,
-    error,
-    refreshStandings: fetchStandings,
+    standings: finalStandings,
+    topThree,
+    remainingStandings,
+    league: null, // TODO: Add league fetching if needed
+    memberCount: finalMemberCount,
+    leagueStats,
+    isLoading: isLoadingStandings,
+    error: standingsError || memberCountError ? 'Failed to load league data' : null,
+    refreshStandings,
   };
 };

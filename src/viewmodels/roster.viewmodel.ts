@@ -1,121 +1,85 @@
 // ViewModel for Roster Page - handles user roster management
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import useSWR from 'swr';
+import { mutate } from 'swr';
 import { SupabaseService } from '../services/supabaseService';
+import { fetcher, createKey } from '../lib/swr';
 import type { RosterPick, Contestant, RosterSlot, League } from '../models';
 
 export const useRosterViewModel = (leagueId: string | null, userId: string | null) => {
-  const [roster, setRoster] = useState<RosterSlot[]>([]);
-  const [availableContestants, setAvailableContestants] = useState<Contestant[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [seasonId, setSeasonId] = useState<string | null>(null);
+  // Fetch roster data using SWR
+  const rosterKey = createKey('roster', userId, leagueId);
+  const { data: picks, error: rosterError, isLoading: isLoadingRoster } = useSWR<RosterPick[]>(
+    rosterKey,
+    fetcher
+  );
 
-  // Fetch user's roster for the league
-  const fetchRoster = async () => {
-    if (!leagueId || !userId) {
-      setIsLoading(false);
-      return;
-    }
+  // Fetch season ID from league
+  const seasonIdKey = createKey('league-season', leagueId);
+  const { data: seasonId, error: seasonError } = useSWR<string | null>(
+    seasonIdKey,
+    fetcher
+  );
 
-    try {
-      setIsLoading(true);
-      setError(null);
+  // Fetch contestants for the season
+  const contestantsKey = createKey('contestants', seasonId);
+  const { data: availableContestants = [], error: contestantsError } = useSWR<Contestant[]>(
+    contestantsKey,
+    fetcher
+  );
+
+  // Calculate total points
+  const pointsKey = createKey('points', userId, leagueId);
+  const { data: totalPoints = 0, error: pointsError } = useSWR<number>(
+    pointsKey,
+    fetcher
+  );
+
+  // Transform picks into roster slots
+  const roster = useMemo<RosterSlot[]>(() => {
+    const rosterSlots: RosterSlot[] = [
+      { type: 'final3', contestant: null },
+      { type: 'final3', contestant: null },
+      { type: 'final3', contestant: null },
+      { type: 'boot', contestant: null },
+    ];
+
+    if (picks && picks.length > 0) {
+      // Separate final3 and boot picks
+      const final3Picks = picks.filter(p => p.pickType === 'final3');
+      const bootPicks = picks.filter(p => p.pickType === 'boot');
       
-      // Initialize empty roster slots
-      const rosterSlots: RosterSlot[] = [
-        { type: 'final3', contestant: null },
-        { type: 'final3', contestant: null },
-        { type: 'final3', contestant: null },
-        { type: 'boot', contestant: null },
-      ];
-      
-      const picks = await SupabaseService.getRosterByUserAndLeague(userId, leagueId);
-      
-      if (picks && picks.length > 0) {
-        // Separate final3 and boot picks
-        const final3Picks = picks.filter(p => p.pickType === 'final3');
-        const bootPicks = picks.filter(p => p.pickType === 'boot');
-        
-        // Fill final3 slots (up to 3)
-        final3Picks.forEach((pick, index) => {
-          if (index < 3 && pick.contestant) {
-            rosterSlots[index].contestant = pick.contestant;
-          }
-        });
-        
-        // Fill boot slot (only one)
-        if (bootPicks.length > 0 && bootPicks[0].contestant) {
-          rosterSlots[3].contestant = bootPicks[0].contestant;
+      // Fill final3 slots (up to 3)
+      final3Picks.forEach((pick, index) => {
+        if (index < 3 && pick.contestant) {
+          rosterSlots[index].contestant = pick.contestant;
         }
-      }
+      });
       
-      setRoster(rosterSlots);
-    } catch (err) {
-      console.error('Error fetching roster:', err);
-      setError('Failed to load roster');
-      // Initialize empty roster on error
-      setRoster([
-        { type: 'final3', contestant: null },
-        { type: 'final3', contestant: null },
-        { type: 'final3', contestant: null },
-        { type: 'boot', contestant: null },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch available contestants for the season
-  const fetchContestants = async (seasonId: string) => {
-    try {
-      const data = await SupabaseService.getContestantsBySeason(seasonId);
-      if (data && data.length > 0) {
-        setAvailableContestants(data);
-      } else {
-        setAvailableContestants([]);
+      // Fill boot slot (only one)
+      if (bootPicks.length > 0 && bootPicks[0].contestant) {
+        rosterSlots[3].contestant = bootPicks[0].contestant;
       }
-    } catch (err) {
-      console.error('Error fetching contestants:', err);
-      setAvailableContestants([]);
     }
-  };
 
-  // Get season ID from league
-  const fetchSeasonId = async (leagueId: string) => {
-    try {
-      // Query league directly to get season_id
-      const supabase = SupabaseService.getClient();
-      const { data: league, error } = await supabase
-        .from('leagues')
-        .select('season_id')
-        .eq('id', leagueId)
-        .single();
+    return rosterSlots;
+  }, [picks]);
 
-      if (error || !league) {
-        console.error('Error fetching league season:', error);
-        return null;
-      }
+  // Combine all errors
+  const error = rosterError || seasonError || contestantsError || pointsError 
+    ? 'Failed to load roster data' 
+    : null;
 
-      setSeasonId(league.season_id);
-      return league.season_id;
-    } catch (err) {
-      console.error('Error fetching season ID:', err);
-      return null;
-    }
-  };
+  // Combined loading state
+  const isLoading = isLoadingRoster && (leagueId !== null && userId !== null);
 
-  // Calculate total points for user
-  const calculatePoints = async () => {
-    try {
-      const points = await SupabaseService.calculateUserPoints(userId, leagueId);
-      setTotalPoints(points);
-    } catch (err) {
-      console.error('Error calculating points:', err);
-      // Mock calculation
-      setTotalPoints(125);
-    }
+  // Refresh function to revalidate all related data
+  const refreshRoster = async () => {
+    if (rosterKey) await mutate(rosterKey);
+    if (pointsKey) await mutate(pointsKey);
+    // Also refresh contestants if seasonId changes
+    if (contestantsKey) await mutate(contestantsKey);
   };
 
   // Add a contestant to roster
@@ -125,45 +89,20 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     slotIndex?: number
   ): Promise<boolean> => {
     if (!userId || !leagueId) {
-      setError('User or league not available');
       return false;
     }
 
     try {
-      setError(null);
       const pick = await SupabaseService.addRosterPick(userId, leagueId, contestantId, pickType);
       
       if (pick) {
-        // Find the contestant in available contestants
-        const contestant = availableContestants.find(c => c.id === contestantId);
-        
-        if (contestant) {
-          // Update local state
-          setRoster(prev => {
-            const newRoster = [...prev];
-            
-            // If slotIndex is provided, use it; otherwise find first empty slot of the type
-            const targetIndex = slotIndex !== undefined 
-              ? slotIndex 
-              : newRoster.findIndex(slot => slot.type === pickType && !slot.contestant);
-            
-            if (targetIndex !== -1) {
-              newRoster[targetIndex] = {
-                ...newRoster[targetIndex],
-                contestant: contestant,
-              };
-            }
-            
-            return newRoster;
-          });
-        }
-        
+        // Invalidate and revalidate cache
+        await refreshRoster();
         return true;
       }
       return false;
     } catch (err: any) {
       console.error('Error adding contestant:', err);
-      setError(err?.message || 'Failed to add contestant');
       return false;
     }
   };
@@ -173,23 +112,11 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     try {
       await SupabaseService.removeRosterPick(pickId);
       
-      // Update local state
-      setRoster(prev => {
-        const newRoster = [...prev];
-        const slotIndex = newRoster.findIndex(
-          slot => slot.contestant && (slot.contestant as any).pickId === pickId
-        );
-        
-        if (slotIndex !== -1) {
-          newRoster[slotIndex].contestant = null;
-        }
-        
-        return newRoster;
-      });
+      // Invalidate and revalidate cache
+      await refreshRoster();
       return true;
     } catch (err) {
       console.error('Error removing contestant:', err);
-      setError('Failed to remove contestant');
       return false;
     }
   };
@@ -212,40 +139,6 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     }
   };
 
-  // Initialize data
-  useEffect(() => {
-    if (!leagueId || !userId) {
-      setIsLoading(false);
-      return;
-    }
-
-    const initializeData = async () => {
-      setIsLoading(true);
-      try {
-        // Get season ID from league
-        const seasonIdFromLeague = await fetchSeasonId(leagueId);
-        if (seasonIdFromLeague) {
-          setSeasonId(seasonIdFromLeague);
-          // Fetch contestants for the season
-          await fetchContestants(seasonIdFromLeague);
-        }
-        
-        // Fetch roster
-        await fetchRoster();
-        
-        // Calculate points
-        await calculatePoints();
-      } catch (err) {
-        console.error('Error initializing roster data:', err);
-        setError('Failed to load roster data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeData();
-  }, [leagueId, userId]);
-
   return {
     roster,
     availableContestants,
@@ -255,7 +148,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     addContestantToRoster,
     removeContestantFromRoster,
     replaceContestant,
-    refreshRoster: fetchRoster,
+    refreshRoster,
     seasonId,
   };
 };

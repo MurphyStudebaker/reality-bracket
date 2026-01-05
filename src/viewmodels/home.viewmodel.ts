@@ -1,53 +1,32 @@
 // ViewModel for Home Page - handles leagues and seasons display
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import useSWR from 'swr';
+import { mutate } from 'swr';
 import { SupabaseService } from '../services/supabaseService';
+import { fetcher, createKey } from '../lib/swr';
 import type { League, Season } from '../models';
 import { myLeagues, availableSeasons } from '../data/mockData';
 
 export const useHomeViewModel = () => {
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [seasons, setSeasons] = useState<Season[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Note: This ViewModel requires userId to be passed or fetched from auth context
+  // For now, we'll need to get userId from auth context or pass it as a parameter
+  // This is a simplified version - the actual implementation is in useHomeViewModel.ts
+  
+  // Fetch available seasons using SWR (no userId needed)
+  const seasonsKey = createKey('seasons');
+  const { data: seasonsData = [], error: seasonsError, isLoading: isLoadingSeasons } = useSWR<Season[]>(
+    seasonsKey,
+    fetcher
+  );
 
-  // Fetch user's leagues
-  const fetchLeagues = async (userId: string) => {
-    try {
-      setIsLoading(true);
-      const data = await SupabaseService.getLeaguesByUserId(userId);
-      if (data && data.length > 0) {
-        setLeagues(data);
-      } else {
-        // Fallback to mock data
-        setLeagues(myLeagues as any);
-      }
-    } catch (err) {
-      console.error('Error fetching leagues:', err);
-      setError('Failed to load leagues');
-      // Fallback to mock data
-      setLeagues(myLeagues as any);
-    } finally {
-      setIsLoading(false);
+  // Use fallback data if SWR returns empty or error
+  const seasons = useMemo(() => {
+    if (seasonsError || (seasonsData.length === 0 && !isLoadingSeasons)) {
+      return availableSeasons as any;
     }
-  };
-
-  // Fetch available seasons
-  const fetchSeasons = async () => {
-    try {
-      const data = await SupabaseService.getSeasons();
-      if (data && data.length > 0) {
-        setSeasons(data);
-      } else {
-        // Fallback to mock data
-        setSeasons(availableSeasons as any);
-      }
-    } catch (err) {
-      console.error('Error fetching seasons:', err);
-      // Fallback to mock data
-      setSeasons(availableSeasons as any);
-    }
-  };
+    return seasonsData;
+  }, [seasonsData, seasonsError, isLoadingSeasons]);
 
   // Create a new league
   const createLeague = async (
@@ -59,13 +38,14 @@ export const useHomeViewModel = () => {
     try {
       const newLeague = await SupabaseService.createLeague(name, seasonId, userId, draftDate);
       if (newLeague) {
-        setLeagues(prev => [...prev, newLeague]);
+        // Invalidate leagues cache
+        const leaguesKey = createKey('leagues', userId);
+        if (leaguesKey) await mutate(leaguesKey);
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error creating league:', err);
-      setError('Failed to create league');
       return false;
     }
   };
@@ -75,32 +55,31 @@ export const useHomeViewModel = () => {
     try {
       const league = await SupabaseService.joinLeagueByInviteCode(inviteCode, userId);
       if (league) {
-        setLeagues(prev => [...prev, league]);
+        // Invalidate leagues cache
+        const leaguesKey = createKey('leagues', userId);
+        if (leaguesKey) await mutate(leaguesKey);
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error joining league:', err);
-      setError('Failed to join league');
       return false;
     }
   };
 
-  // Initialize data
-  useEffect(() => {
-    // TODO: Get current user ID from auth context
-    const userId = 'current-user-id';
-    fetchLeagues(userId);
-    fetchSeasons();
-  }, []);
+  // Fetch leagues function (requires userId)
+  const fetchLeagues = async (userId: string) => {
+    const leaguesKey = createKey('leagues', userId);
+    if (leaguesKey) await mutate(leaguesKey);
+  };
 
   return {
-    leagues,
+    leagues: [], // This ViewModel doesn't fetch leagues - use useHomeViewModel.ts instead
     seasons,
-    isLoading,
-    error,
+    isLoading: isLoadingSeasons,
+    error: seasonsError ? 'Failed to load seasons' : null,
     createLeague,
     joinLeague,
-    refreshLeagues: (userId: string) => fetchLeagues(userId),
+    refreshLeagues: fetchLeagues,
   };
 };

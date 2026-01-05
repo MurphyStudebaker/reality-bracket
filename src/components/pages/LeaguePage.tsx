@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, Users, TrendingUp, TrendingDown, Minus, Crown, Award, Medal, Copy, Check } from 'lucide-react';
+import useSWR from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import { SupabaseService } from '../../services/supabaseService';
+import { fetcher, createKey } from '../../lib/swr';
 import type { LeagueStanding } from '../../models';
 
 interface League {
@@ -19,80 +21,46 @@ interface LeaguePageProps {
 }
 
 export default function LeaguePage({ initialLeague }: LeaguePageProps) {
-  const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(initialLeague || null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [standings, setStandings] = useState<LeagueStanding[]>([]);
-  const [isLoadingStandings, setIsLoadingStandings] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Fetch current user
+  const userKey = createKey('current-user');
+  const { data: currentUser } = useSWR<{ id: string } | null>(userKey, fetcher);
+
+  // Fetch leagues using SWR
+  const leaguesKey = createKey('leagues-selector', currentUser?.id);
+  const { data: leagues = [], isLoading } = useSWR<League[]>(
+    leaguesKey,
+    fetcher
+  );
+
+  // Set selected league when leagues are loaded
   useEffect(() => {
-    const fetchLeagues = async () => {
-      try {
-        setIsLoading(true);
-        const user = await SupabaseService.getCurrentUser();
-        if (!user) {
-          console.error('No user logged in');
-          setIsLoading(false);
-          return;
+    if (leagues.length > 0 && !selectedLeague) {
+      if (initialLeague) {
+        const matchedLeague = leagues.find(l => l.id === initialLeague.id);
+        const fallbackMatch = matchedLeague || leagues.find(
+          l => l.name === initialLeague.name && l.season === initialLeague.season
+        );
+        if (fallbackMatch) {
+          setSelectedLeague(fallbackMatch);
+        } else {
+          setSelectedLeague(leagues[0]);
         }
-
-        const fetchedLeagues = await SupabaseService.getLeaguesForSelector(user.id);
-        setLeagues(fetchedLeagues);
-
-        // Set selected league based on initialLeague prop or first available
-        if (initialLeague) {
-          // Try to find by ID first (UUID string)
-          const matchedLeague = fetchedLeagues.find(l => l.id === initialLeague.id);
-          
-          // If ID doesn't match (e.g., HomePage uses numeric IDs), try matching by name and season
-          const fallbackMatch = matchedLeague || fetchedLeagues.find(
-            l => l.name === initialLeague.name && l.season === initialLeague.season
-          );
-          
-          if (fallbackMatch) {
-            setSelectedLeague(fallbackMatch);
-          } else if (fetchedLeagues.length > 0) {
-            setSelectedLeague(fetchedLeagues[0]);
-          }
-        } else if (fetchedLeagues.length > 0) {
-          setSelectedLeague(fetchedLeagues[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching leagues:', error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setSelectedLeague(leagues[0]);
       }
-    };
+    }
+  }, [leagues, initialLeague, selectedLeague]);
 
-    fetchLeagues();
-  }, [initialLeague]);
-
-  // Fetch standings when selected league changes
-  useEffect(() => {
-    const fetchStandings = async () => {
-      if (!selectedLeague) {
-        setStandings([]);
-        return;
-      }
-
-      try {
-        setIsLoadingStandings(true);
-        console.log('Fetching standings for league:', selectedLeague.id);
-        const fetchedStandings = await SupabaseService.getLeagueStandings(selectedLeague.id);
-        console.log('Fetched standings:', fetchedStandings);
-        setStandings(fetchedStandings);
-      } catch (error) {
-        console.error('Error fetching standings:', error);
-        setStandings([]);
-      } finally {
-        setIsLoadingStandings(false);
-      }
-    };
-
-    fetchStandings();
-  }, [selectedLeague]);
+  // Fetch standings using SWR
+  const standingsKey = createKey('standings', selectedLeague?.id);
+  const { data: standings = [], isLoading: isLoadingStandings } = useSWR<LeagueStanding[]>(
+    standingsKey,
+    fetcher
+  );
 
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);

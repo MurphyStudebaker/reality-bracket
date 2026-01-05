@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Camera, Check, Mail, LogOut } from 'lucide-react';
+import useSWR from 'swr';
+import { mutate } from 'swr';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
 import { SupabaseService } from '../../services/supabaseService';
+import { fetcher, createKey } from '../../lib/swr';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
@@ -19,7 +22,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [leagues, setLeagues] = useState<League[]>([]);
   const [leagueDisplayNames, setLeagueDisplayNames] = useState<Record<string, string>>({});
-  const [isLoadingLeagues, setIsLoadingLeagues] = useState(false);
 
   // Login/Signup form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -50,35 +52,36 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Fetch leagues and display names when drawer opens and user is authenticated
+  // Fetch leagues using SWR
+  const leaguesKey = createKey('leagues-selector', auth.user?.id);
+  const { data: fetchedLeagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
+    isOpen && auth.isAuthenticated ? leaguesKey : null,
+    fetcher
+  );
+
+  // Fetch display names using SWR
+  const displayNamesKey = createKey('league-display-names', auth.user?.id);
+  const { data: fetchedDisplayNames = {}, mutate: mutateDisplayNames } = useSWR<Record<string, string>>(
+    isOpen && auth.isAuthenticated ? displayNamesKey : null,
+    fetcher
+  );
+
+  // Update local state when SWR data changes
   useEffect(() => {
-    const fetchLeaguesAndDisplayNames = async () => {
-      if (!auth.isAuthenticated || !auth.user) {
-        setLeagues([]);
-        setLeagueDisplayNames({});
-        return;
-      }
-
-      try {
-        setIsLoadingLeagues(true);
-        // Fetch leagues
-        const fetchedLeagues = await SupabaseService.getLeaguesForSelector(auth.user.id);
-        setLeagues(fetchedLeagues);
-
-        // Fetch display names
-        const displayNames = await SupabaseService.getLeagueDisplayNames(auth.user.id);
-        setLeagueDisplayNames(displayNames);
-      } catch (error) {
-        console.error('Error fetching leagues and display names:', error);
-      } finally {
-        setIsLoadingLeagues(false);
-      }
-    };
-
-    if (isOpen && auth.isAuthenticated) {
-      fetchLeaguesAndDisplayNames();
+    if (fetchedLeagues.length > 0) {
+      setLeagues(fetchedLeagues);
+    } else if (!auth.isAuthenticated) {
+      setLeagues([]);
     }
-  }, [isOpen, auth.isAuthenticated, auth.user]);
+  }, [fetchedLeagues, auth.isAuthenticated]);
+
+  useEffect(() => {
+    if (fetchedDisplayNames && Object.keys(fetchedDisplayNames).length > 0) {
+      setLeagueDisplayNames(fetchedDisplayNames);
+    } else if (!auth.isAuthenticated) {
+      setLeagueDisplayNames({});
+    }
+  }, [fetchedDisplayNames, auth.isAuthenticated]);
 
   if (!isOpen) return null;
 
@@ -118,9 +121,10 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     console.log('Update result:', success);
 
     if (success) {
-      // Refresh display names from Supabase to ensure we have the latest data
-      const updatedDisplayNames = await SupabaseService.getLeagueDisplayNames(auth.user.id);
-      setLeagueDisplayNames(updatedDisplayNames);
+      // Invalidate and revalidate display names cache
+      if (displayNamesKey) {
+        await mutateDisplayNames();
+      }
       
       setEditingLeagueId(null);
       setTempDisplayName('');
