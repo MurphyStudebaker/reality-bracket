@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Users, Trophy, Bell, UserCircle } from 'lucide-react';
+import { Home, Users, Trophy, Bell, UserCircle, LogIn } from 'lucide-react';
 import HomePage from './components/pages/HomePage';
 import RosterPage from './components/pages/RosterPage';
 import LeaguePage from './components/pages/LeaguePage';
@@ -12,7 +12,7 @@ type League = { id: string; name: string; season: string; memberCount: number; i
 
 export default function App() {
   // Initialize auth at app level to restore session on page load
-  useAuthViewModel();
+  const auth = useAuthViewModel();
   
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
@@ -73,13 +73,29 @@ export default function App() {
             <Bell className="w-5 h-5" />
           </button> */}
           
-          <button
-            onClick={() => setIsProfileDrawerOpen(true)}
-            className="p-2 rounded-lg border-2 border-slate-700 transition-all hover:bg-slate-800 text-slate-400 hover:text-slate-300"
-            aria-label="Account settings"
-          >
-            <UserCircle className="w-5 h-5" />
-          </button>
+          {auth.isAuthenticated ? (
+            <button
+              onClick={() => setIsProfileDrawerOpen(true)}
+              className="p-2 rounded-lg border-2 border-slate-700 transition-all hover:bg-slate-800 text-slate-400 hover:text-slate-300"
+              aria-label="Account settings"
+            >
+              <UserCircle className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsProfileDrawerOpen(true)}
+              className="px-4 py-2 rounded-lg border-2 transition-all hover:bg-slate-800 flex items-center gap-2"
+              style={{ 
+                borderColor: '#BFFF0B',
+                color: '#BFFF0B'
+              }}
+              aria-label="Sign in"
+            >
+              Sign In
+              {/* <LogIn className="w-5 h-5" />
+              <span className="hidden sm:inline">Sign In</span> */}
+            </button>
+          )}
         </div>
       </header>
 
@@ -88,10 +104,12 @@ export default function App() {
         <div className="flex-1 overflow-y-auto">
           {currentScreen === 'home' && (
             <HomePage 
+              isAuthenticated={auth.isAuthenticated}
               onLeagueClick={(league) => {
                 setSelectedLeague(league);
                 setCurrentScreen('league');
               }}
+              onSignInClick={() => setIsProfileDrawerOpen(true)}
             />
           )}
           {currentScreen === 'roster' && <RosterPage />}

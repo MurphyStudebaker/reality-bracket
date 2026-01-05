@@ -1,15 +1,48 @@
-import { useState } from 'react';
-import { ChevronDown, Users, UserPlus } from 'lucide-react';
-import { myRoster, myLeagues, contestants, Contestant, RosterSlot } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+import { ChevronDown, Users, UserPlus, Copy, Check } from 'lucide-react';
+import { myRoster, contestants, Contestant, RosterSlot } from '../../data/mockData';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
+import { SupabaseService } from '../../services/supabaseService';
+import type { League } from '../../data/mockData';
 
 export default function RosterPage() {
-  const [selectedLeague, setSelectedLeague] = useState(myLeagues[0]);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isReplacementDrawerOpen, setIsReplacementDrawerOpen] = useState(false);
   const [roster, setRoster] = useState<RosterSlot[]>(myRoster);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const fetchLeagues = async () => {
+      try {
+        setIsLoading(true);
+        const user = await SupabaseService.getCurrentUser();
+        if (!user) {
+          console.error('No user logged in');
+          setIsLoading(false);
+          return;
+        }
+
+        const fetchedLeagues = await SupabaseService.getLeaguesForSelector(user.id);
+        setLeagues(fetchedLeagues);
+
+        // Set selected league if available
+        if (fetchedLeagues.length > 0) {
+          setSelectedLeague(prev => prev || fetchedLeagues[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching leagues:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLeagues();
+  }, []);
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
@@ -35,10 +68,41 @@ export default function RosterPage() {
     return contestant.status === 'eliminated' || contestant.status === 'jury';
   };
 
+  const handleCopyInviteCode = async () => {
+    if (!selectedLeague?.inviteCode) return;
+
+    try {
+      await navigator.clipboard.writeText(selectedLeague.inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy invite code:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-4 lg:p-8">
+        <div className="text-center text-slate-400">Loading leagues...</div>
+      </div>
+    );
+  }
+
+  if (!selectedLeague || leagues.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto p-4 lg:p-8">
+        <div className="text-center text-slate-400">
+          <p className="mb-2">No active or upcoming leagues found.</p>
+          <p className="text-sm">Join or create a league to get started!</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 lg:p-8">
-      {/* League Selector */}
-      <div className="mb-6">
+      {/* League Selector and Invite Code */}
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <button
           onClick={() => setIsSelectorOpen(true)}
           className="w-full sm:w-auto flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all"
@@ -47,6 +111,23 @@ export default function RosterPage() {
           <span>{selectedLeague.name}</span>
           <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
         </button>
+
+        {/* Invite Code */}
+        {selectedLeague.inviteCode && (
+          <button
+            onClick={handleCopyInviteCode}
+            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all group"
+            title="Click to copy invite code"
+          >
+            <span className="text-sm text-slate-400">Invite Code:</span>
+            <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-300 transition-colors" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Final 3 Section */}
@@ -165,7 +246,7 @@ export default function RosterPage() {
       <LeagueSelector
         isOpen={isSelectorOpen}
         onClose={() => setIsSelectorOpen(false)}
-        leagues={myLeagues}
+        leagues={leagues}
         selectedLeague={selectedLeague}
         onSelectLeague={(league) => {
           setSelectedLeague(league);

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Camera, Check, Mail, LogOut } from 'lucide-react';
-import { myLeagues } from '../../data/mockData';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
+import { SupabaseService } from '../../services/supabaseService';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
+import type { League } from '../../data/mockData';
 
 interface ProfileDrawerProps {
   isOpen: boolean;
@@ -15,11 +16,10 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const auth = useAuthViewModel();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
-  const [tempUsername, setTempUsername] = useState('');
-  const [leagueUsernames, setLeagueUsernames] = useState<Record<string, string>>({
-    'league-1': 'SurvivorFan47',
-    'league-2': 'SurvivorFan47',
-  });
+  const [tempDisplayName, setTempDisplayName] = useState('');
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [leagueDisplayNames, setLeagueDisplayNames] = useState<Record<string, string>>({});
+  const [isLoadingLeagues, setIsLoadingLeagues] = useState(false);
 
   // Login/Signup form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -33,6 +33,52 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [resetEmail, setResetEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Clear error when drawer opens
+  useEffect(() => {
+    if (isOpen && auth.clearError) {
+      auth.clearError();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Clear error when switching tabs
+  useEffect(() => {
+    if (auth.clearError) {
+      auth.clearError();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Fetch leagues and display names when drawer opens and user is authenticated
+  useEffect(() => {
+    const fetchLeaguesAndDisplayNames = async () => {
+      if (!auth.isAuthenticated || !auth.user) {
+        setLeagues([]);
+        setLeagueDisplayNames({});
+        return;
+      }
+
+      try {
+        setIsLoadingLeagues(true);
+        // Fetch leagues
+        const fetchedLeagues = await SupabaseService.getLeaguesForSelector(auth.user.id);
+        setLeagues(fetchedLeagues);
+
+        // Fetch display names
+        const displayNames = await SupabaseService.getLeagueDisplayNames(auth.user.id);
+        setLeagueDisplayNames(displayNames);
+      } catch (error) {
+        console.error('Error fetching leagues and display names:', error);
+      } finally {
+        setIsLoadingLeagues(false);
+      }
+    };
+
+    if (isOpen && auth.isAuthenticated) {
+      fetchLeaguesAndDisplayNames();
+    }
+  }, [isOpen, auth.isAuthenticated, auth.user]);
 
   if (!isOpen) return null;
 
@@ -49,19 +95,45 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
   const startEditing = (leagueId: string) => {
     setEditingLeagueId(leagueId);
-    setTempUsername(leagueUsernames[leagueId] || 'SurvivorFan47');
+    // Get current display name (empty string if not set, so user can set a new one)
+    const currentDisplayName = leagueDisplayNames[leagueId] || '';
+    setTempDisplayName(currentDisplayName);
   };
 
-  const saveUsername = (leagueId: string) => {
-    if (tempUsername.trim()) {
-      setLeagueUsernames({ ...leagueUsernames, [leagueId]: tempUsername });
+  const saveDisplayName = async (leagueId: string) => {
+    if (!auth.user) {
+      console.error('Cannot save display name: user not authenticated');
+      return;
     }
-    setEditingLeagueId(null);
+
+    const displayName = tempDisplayName.trim();
+    console.log('Saving display name:', { userId: auth.user.id, leagueId, displayName });
+    
+    const success = await SupabaseService.updateLeagueDisplayName(
+      auth.user.id,
+      leagueId,
+      displayName
+    );
+
+    console.log('Update result:', success);
+
+    if (success) {
+      // Refresh display names from Supabase to ensure we have the latest data
+      const updatedDisplayNames = await SupabaseService.getLeagueDisplayNames(auth.user.id);
+      setLeagueDisplayNames(updatedDisplayNames);
+      
+      setEditingLeagueId(null);
+      setTempDisplayName('');
+    } else {
+      console.error('Failed to update display name');
+      // Keep editing mode open on error so user can try again
+      alert('Failed to update display name. Please try again.');
+    }
   };
 
   const cancelEditing = () => {
     setEditingLeagueId(null);
-    setTempUsername('');
+    setTempDisplayName('');
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -212,8 +284,24 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                   /* Login/Signup Tabs */
                   <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
                     <TabsList className="w-full bg-slate-800/50">
-                      <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
-                      <TabsTrigger value="signup" className="flex-1">Sign Up</TabsTrigger>
+                      <TabsTrigger 
+                        value="login" 
+                        className="flex-1 data-[state=active]:bg-slate-900"
+                        style={{
+                          color: activeTab === 'login' ? '#BFFF0B' : '#94a3b8'
+                        }}
+                      >
+                        Login
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="signup" 
+                        className="flex-1 data-[state=active]:bg-slate-900"
+                        style={{
+                          color: activeTab === 'signup' ? '#BFFF0B' : '#94a3b8'
+                        }}
+                      >
+                        Sign Up
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="login" className="mt-6">
@@ -397,68 +485,78 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               </div>
             </div>
 
-            {/* League Usernames Section */}
+            {/* League Display Names Section */}
             <div className="mb-6">
-              <h3 className="text-sm text-slate-400 mb-3">LEAGUE USERNAMES</h3>
-              <div className="space-y-2">
-                {myLeagues.map((league) => {
-                  const isEditing = editingLeagueId === league.id;
-                  const currentUsername = leagueUsernames[league.id] || 'SurvivorFan47';
+              <h3 className="text-sm text-slate-400 mb-3">LEAGUE DISPLAY NAMES</h3>
+              {isLoadingLeagues ? (
+                <div className="text-center text-slate-400 py-4">Loading leagues...</div>
+              ) : leagues.length === 0 ? (
+                <div className="text-center text-slate-400 py-4">
+                  <p>No leagues found.</p>
+                  <p className="text-xs mt-2">Join or create a league to set display names.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leagues.map((league) => {
+                    const isEditing = editingLeagueId === league.id;
+                    // Use display name if set, otherwise show placeholder
+                    const currentDisplayName = leagueDisplayNames[league.id] || 'Not set';
 
-                  return (
-                    <div
-                      key={league.id}
-                      className="bg-slate-800/50 rounded-lg p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate">{league.name}</p>
-                          <p className="text-xs text-slate-400">{league.season}</p>
+                    return (
+                      <div
+                        key={league.id}
+                        className="bg-slate-800/50 rounded-lg p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate">{league.name}</p>
+                            <p className="text-xs text-slate-400">{league.season}</p>
+                          </div>
+
+                          {isEditing ? (
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <input
+                                type="text"
+                                value={tempDisplayName}
+                                onChange={(e) => setTempDisplayName(e.target.value)}
+                                className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-slate-500 w-32 text-sm"
+                                placeholder="Display name"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => saveDisplayName(league.id)}
+                                className="p-2 rounded-lg transition-all hover:bg-slate-700"
+                                style={{ color: '#BFFF0B' }}
+                                aria-label="Save display name"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                className="p-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-700 transition-all"
+                                aria-label="Cancel"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-slate-300 text-sm">{currentDisplayName}</span>
+                              <button
+                                onClick={() => startEditing(league.id)}
+                                className="px-3 py-1.5 rounded-lg border transition-all hover:bg-slate-700 text-sm"
+                                style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          )}
                         </div>
-
-                        {isEditing ? (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <input
-                              type="text"
-                              value={tempUsername}
-                              onChange={(e) => setTempUsername(e.target.value)}
-                              className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-slate-500 w-32 text-sm"
-                              placeholder="Username"
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => saveUsername(league.id)}
-                              className="p-2 rounded-lg transition-all hover:bg-slate-700"
-                              style={{ color: '#BFFF0B' }}
-                              aria-label="Save username"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={cancelEditing}
-                              className="p-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-700 transition-all"
-                              aria-label="Cancel"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-slate-300 text-sm">{currentUsername}</span>
-                            <button
-                              onClick={() => startEditing(league.id)}
-                              className="px-3 py-1.5 rounded-lg border transition-all hover:bg-slate-700 text-sm"
-                              style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
                 {/* Support Section */}
