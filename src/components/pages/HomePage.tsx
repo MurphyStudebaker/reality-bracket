@@ -3,15 +3,18 @@ import { Plus, LogIn, ChevronRight } from 'lucide-react';
 import { useHomeViewModel } from '../../viewmodels/useHomeViewModel';
 import JoinLeagueModal from '../modals/JoinLeagueModal';
 import CreateLeagueModal from '../modals/CreateLeagueModal';
+import LoggedOutScreen from './LoggedOutScreen';
 import type { League as UILeague } from '../../models/types';
 
 type League = { id: string; name: string; season: string; memberCount: number; inviteCode: string };
 
 interface HomePageProps {
+  isAuthenticated: boolean;
   onLeagueClick: (league: League) => void;
+  onSignInClick?: () => void;
 }
 
-export default function HomePage({ onLeagueClick }: HomePageProps) {
+export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick }: HomePageProps) {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const viewModel = useHomeViewModel();
@@ -36,6 +39,19 @@ export default function HomePage({ onLeagueClick }: HomePageProps) {
     }
     prevIsCreatingRef.current = viewModel.isCreatingLeague;
   }, [viewModel.isCreatingLeague, viewModel.createLeagueError, isCreateModalOpen]);
+
+  // Show logged out screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <LoggedOutScreen 
+        onSignInClick={() => {
+          if (onSignInClick) {
+            onSignInClick();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 lg:p-8">

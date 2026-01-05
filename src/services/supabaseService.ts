@@ -341,6 +341,81 @@ export class SupabaseService {
     }
   }
 
+  // Get leagues for selector component - filtered by active/upcoming seasons
+  static async getLeaguesForSelector(userId: string): Promise<Array<{
+    id: string;
+    name: string;
+    season: string;
+    memberCount: number;
+    inviteCode: string;
+  }>> {
+    try {
+      // First, get all leagues where user is a member, with league and season details
+      const { data: memberData, error: memberError } = await supabase
+        .from('league_members')
+        .select(`
+          league_id,
+          leagues!inner(
+            id,
+            name,
+            invite_code,
+            season_id,
+            seasons!inner(
+              id,
+              name,
+              number,
+              status
+            )
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (memberError) {
+        console.error('Error fetching user leagues for selector:', memberError);
+        return [];
+      }
+
+      if (!memberData || memberData.length === 0) {
+        return [];
+      }
+
+      // Filter by season status: 'active' or 'upcoming'
+      const filteredMembers = memberData.filter((member: any) => {
+        const season = member.leagues.seasons;
+        return season.status === 'active' || season.status === 'upcoming';
+      });
+
+      // For each league, get member count
+      const result = await Promise.all(
+        filteredMembers.map(async (member: any) => {
+          const league = member.leagues;
+          const season = league.seasons;
+          
+          // Get member count for this league
+          const { count } = await supabase
+            .from('league_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('league_id', league.id);
+
+          const memberCount = count || 0;
+
+          return {
+            id: league.id,
+            name: league.name,
+            season: season.name || `Season ${season.number}`,
+            memberCount,
+            inviteCode: league.invite_code,
+          };
+        })
+      );
+
+      return result;
+    } catch (error) {
+      console.error('Error in getLeaguesForSelector:', error);
+      return [];
+    }
+  }
+
   static async createLeague(
     name: string,
     seasonId: string,
@@ -591,14 +666,174 @@ export class SupabaseService {
 
   // STANDINGS OPERATIONS
   static async getLeagueStandings(leagueId: string): Promise<LeagueStanding[]> {
-    // TODO: Connect to Supabase
-    // This would involve a complex query joining league_members, users, and calculating points
-    // const { data } = await supabase
-    //   .from('league_members')
-    //   .select('*, users(username), roster_picks(contestants(contestant_scores(*)))')
-    //   .eq('league_id', leagueId)
-    // Calculate rankings and points
-    return [];
+    try {
+      // Only query league_members table - no joins with users table
+      const { data: memberData, error: memberError } = await supabase
+        .from('league_members')
+        .select('user_id, total_points, display_name')
+        .eq('league_id', leagueId)
+        .order('total_points', { ascending: false });
+
+      if (memberError || !memberData || memberData.length === 0) {
+        if (memberError) {
+          console.error('Error fetching league members:', memberError);
+        } else {
+          console.log('No league members found for league:', leagueId);
+        }
+        return [];
+      }
+
+      // Transform to LeagueStanding format
+      // Use display_name from league_members if available, otherwise show generic name
+      const standings: LeagueStanding[] = memberData.map((member: any, index: number) => {
+        // Use display_name if set, otherwise show "Player" with first 8 chars of user_id
+        const displayName = member.display_name || `Player ${member.user_id.substring(0, 8)}`;
+        return {
+          rank: index + 1,
+          userId: member.user_id,
+          username: displayName,
+          points: member.total_points ?? 0,
+          change: 0,
+          leagueId: leagueId,
+        };
+      });
+
+      console.log('Standings:', standings);
+      return standings;
+    } catch (error) {
+      console.error('Error in getLeagueStandings:', error);
+      return [];
+    }
+  }
+
+  // Get display names for user's leagues
+  static async getLeagueDisplayNames(userId: string): Promise<Record<string, string>> {
+    try {
+      const { data: memberData, error } = await supabase
+        .from('league_members')
+        .select('league_id, display_name')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error fetching display names:', error);
+        return {};
+      }
+
+      const displayNames: Record<string, string> = {};
+      if (memberData) {
+        memberData.forEach((member: any) => {
+          if (member.display_name) {
+            displayNames[member.league_id] = member.display_name;
+          }
+        });
+      }
+
+      return displayNames;
+    } catch (error) {
+      console.error('Error in getLeagueDisplayNames:', error);
+      return {};
+    }
+  }
+
+  // Update display name for a league
+  static async updateLeagueDisplayName(
+    userId: string,
+    leagueId: string,
+    displayName: string
+  ): Promise<boolean> {
+    try {
+      const trimmedName = displayName.trim();
+      console.log('Updating display name in Supabase:', {
+        userId,
+        leagueId,
+        displayName: trimmedName || null
+      });
+
+      const { data, error } = await supabase
+        .from('league_members')
+        .update({ display_name: trimmedName || null })
+        .eq('user_id', userId)
+        .eq('league_id', leagueId)
+        .select();
+
+      if (error) {
+        console.error('Error updating display name:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        return false;
+      }
+
+      // Check if any rows were updated
+      if (!data || data.length === 0) {
+        console.error('Update returned no rows - RLS policy may be blocking the update or row does not exist');
+        console.error('Query params:', { userId, leagueId, displayName: trimmedName });
+        return false;
+      }
+
+      console.log('Display name updated successfully:', data);
+      return true;
+    } catch (error) {
+      console.error('Error in updateLeagueDisplayName:', error);
+      return false;
+    }
+  }
+
+  // Fallback method: Query league_members and users separately
+  static async getLeagueStandingsFallback(leagueId: string): Promise<LeagueStanding[]> {
+    try {
+      // Get league members
+      const { data: memberData, error: memberError } = await supabase
+        .from('league_members')
+        .select('user_id, total_points, display_name')
+        .eq('league_id', leagueId)
+        .order('total_points', { ascending: false });
+
+      if (memberError || !memberData || memberData.length === 0) {
+        console.error('Error in fallback method:', memberError);
+        return [];
+      }
+
+      // Get user IDs
+      const userIds = memberData.map((m: any) => m.user_id);
+
+      // Fetch users separately
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username')
+        .in('id', userIds);
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+      }
+
+      // Create a map of user data
+      const usersMap = new Map();
+      if (usersData) {
+        usersData.forEach((user: any) => {
+          usersMap.set(user.id, user);
+        });
+      }
+
+      // Transform to LeagueStanding format
+      const standings: LeagueStanding[] = memberData.map((member: any, index: number) => {
+        const user = usersMap.get(member.user_id);
+        // Use display_name from league_members if available, otherwise fall back to username
+        const displayName = member.display_name || user?.username || 'Unknown';
+        return {
+          rank: index + 1,
+          userId: member.user_id,
+          username: displayName,
+          points: member.total_points ?? 0,
+          change: 0,
+          leagueId: leagueId,
+        };
+      });
+
+      console.log('Fallback standings:', standings);
+      return standings;
+    } catch (error) {
+      console.error('Error in fallback method:', error);
+      return [];
+    }
   }
 
   // ACTIVITY OPERATIONS

@@ -243,6 +243,11 @@ export const useAuthViewModel = () => {
     };
   }, []);
 
+  // Clear error
+  const clearError = () => {
+    setError(null);
+  };
+
   return {
     user,
     isAuthenticated: !!user,
@@ -257,5 +262,6 @@ export const useAuthViewModel = () => {
     updatePassword,
     refreshAuth: checkAuth,
     clearPasswordResetRequested: () => setIsPasswordResetRequested(false),
+    clearError,
   };
 };
