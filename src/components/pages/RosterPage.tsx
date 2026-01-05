@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check } from 'lucide-react';
+import useSWR from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
-import { SupabaseService } from '../../services/supabaseService';
+import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
 import type { Contestant, RosterSlot } from '../../models';
@@ -19,13 +20,25 @@ interface League {
 
 export default function RosterPage() {
   const { user } = useAuthViewModel();
-  const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isLoadingLeagues, setIsLoadingLeagues] = useState(true);
   const [isReplacementDrawerOpen, setIsReplacementDrawerOpen] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Fetch leagues using SWR
+  const leaguesKey = createKey('leagues-selector', user?.id);
+  const { data: leagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
+    leaguesKey,
+    fetcher
+  );
+
+  // Set selected league when leagues are loaded
+  useEffect(() => {
+    if (leagues.length > 0 && !selectedLeague) {
+      setSelectedLeague(leagues[0]);
+    }
+  }, [leagues, selectedLeague]);
 
   // Use roster viewmodel
   const {
@@ -36,32 +49,6 @@ export default function RosterPage() {
     addContestantToRoster,
     refreshRoster,
   } = useRosterViewModel(selectedLeague?.id || null, user?.id || null);
-
-  useEffect(() => {
-    const fetchLeagues = async () => {
-      if (!user) {
-        setIsLoadingLeagues(false);
-        return;
-      }
-
-      try {
-        setIsLoadingLeagues(true);
-        const fetchedLeagues = await SupabaseService.getLeaguesForSelector(user.id);
-        setLeagues(fetchedLeagues);
-
-        // Set selected league if available
-        if (fetchedLeagues.length > 0) {
-          setSelectedLeague(prev => prev || fetchedLeagues[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching leagues:', error);
-      } finally {
-        setIsLoadingLeagues(false);
-      }
-    };
-
-    fetchLeagues();
-  }, [user]);
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
