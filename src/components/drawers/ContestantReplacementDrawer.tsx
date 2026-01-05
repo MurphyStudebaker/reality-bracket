@@ -1,5 +1,5 @@
 import { X, Check } from 'lucide-react';
-import { Contestant } from '../../data/mockData';
+import type { Contestant, RosterSlot } from '../../models';
 
 interface ContestantReplacementDrawerProps {
   isOpen: boolean;
@@ -7,7 +7,9 @@ interface ContestantReplacementDrawerProps {
   contestants: Contestant[];
   currentContestant: Contestant | null;
   slotType: 'final3' | 'boot';
+  slotIndex: number; // Index of the slot being drafted (0-2 for final3, 3 for boot)
   onSelectContestant: (contestant: Contestant) => void;
+  roster: RosterSlot[]; // Current roster to check for already selected contestants
 }
 
 export default function ContestantReplacementDrawer({
@@ -16,15 +18,51 @@ export default function ContestantReplacementDrawer({
   contestants,
   currentContestant,
   slotType,
+  slotIndex,
   onSelectContestant,
+  roster,
 }: ContestantReplacementDrawerProps) {
   if (!isOpen) return null;
 
-  // Available players are those with 'active' status
-  const availableContestants = contestants.filter(c => c.status === 'active');
+  // Get the heading based on slot type and index
+  const getHeading = () => {
+    if (slotType === 'boot') {
+      return 'Who Will Get Their Torch Snuffed Next?';
+    }
+    
+    // For final3 slots, use the index to determine position
+    if (slotIndex === 0) {
+      return 'Who Will be the Sole Survivor?';
+    } else if (slotIndex === 1) {
+      return 'Who Will be the Runner Up?';
+    } else if (slotIndex === 2) {
+      return 'Who Will be the Third Place Finalist?';
+    }
+    
+    // Fallback
+    return 'Select a contestant';
+  };
+
+  // Get IDs of contestants already selected in other roster slots
+  const alreadySelectedContestantIds = roster
+    .map(slot => slot.contestant?.id)
+    .filter((id): id is string => id !== undefined && id !== currentContestant?.id);
+
+  // Available players are those with 'active' status AND not already selected in other positions
+  const availableContestants = contestants.filter(
+    c => c.status === 'active' && !alreadySelectedContestantIds.includes(c.id)
+  );
   
-  // Unavailable players are eliminated, jury, or final3
-  const unavailableContestants = contestants.filter(c => c.status !== 'active');
+  // Unavailable players include:
+  // 1. Those with 'eliminated', 'jury', or 'final3' status
+  // 2. Those already selected in other roster positions
+  const unavailableContestants = contestants.filter(
+    c => 
+      c.status === 'eliminated' || 
+      c.status === 'jury' || 
+      c.status === 'final3' ||
+      (c.status === 'active' && alreadySelectedContestantIds.includes(c.id))
+  );
 
   const handleSelect = (contestant: Contestant) => {
     onSelectContestant(contestant);
@@ -48,10 +86,12 @@ export default function ContestantReplacementDrawer({
           {/* Header */}
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-800">
             <div>
-              <h2 className="text-xl">Replace Contestant</h2>
-              <p className="text-sm text-slate-400 mt-1">
-                {currentContestant ? `Replacing ${currentContestant.name}` : 'Select a contestant'}
-              </p>
+              <h2 className="text-xl">{getHeading()}</h2>
+              {currentContestant && (
+                <p className="text-sm text-slate-400 mt-1">
+                  Replacing {currentContestant.name}
+                </p>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -140,6 +180,7 @@ export default function ContestantReplacementDrawer({
                           {contestant.status === 'eliminated' && 'Eliminated'}
                           {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
                           {contestant.status === 'final3' && 'Final 3'}
+                          {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'Already Selected'}
                         </div>
                       </div>
                     </div>

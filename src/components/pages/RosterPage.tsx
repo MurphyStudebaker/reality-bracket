@@ -1,32 +1,51 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check } from 'lucide-react';
-import { myRoster, contestants, Contestant, RosterSlot } from '../../data/mockData';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
 import { SupabaseService } from '../../services/supabaseService';
-import type { League } from '../../data/mockData';
+import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
+import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
+import type { Contestant, RosterSlot } from '../../models';
+
+interface League {
+  id: string;
+  name: string;
+  season: string;
+  seasonNumber: number;
+  seasonName: string;
+  memberCount: number;
+  inviteCode: string;
+}
 
 export default function RosterPage() {
+  const { user } = useAuthViewModel();
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingLeagues, setIsLoadingLeagues] = useState(true);
   const [isReplacementDrawerOpen, setIsReplacementDrawerOpen] = useState(false);
-  const [roster, setRoster] = useState<RosterSlot[]>(myRoster);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Use roster viewmodel
+  const {
+    roster,
+    availableContestants,
+    isLoading: isLoadingRoster,
+    error: rosterError,
+    addContestantToRoster,
+    refreshRoster,
+  } = useRosterViewModel(selectedLeague?.id || null, user?.id || null);
+
   useEffect(() => {
     const fetchLeagues = async () => {
-      try {
-        setIsLoading(true);
-        const user = await SupabaseService.getCurrentUser();
-        if (!user) {
-          console.error('No user logged in');
-          setIsLoading(false);
-          return;
-        }
+      if (!user) {
+        setIsLoadingLeagues(false);
+        return;
+      }
 
+      try {
+        setIsLoadingLeagues(true);
         const fetchedLeagues = await SupabaseService.getLeaguesForSelector(user.id);
         setLeagues(fetchedLeagues);
 
@@ -37,12 +56,12 @@ export default function RosterPage() {
       } catch (error) {
         console.error('Error fetching leagues:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingLeagues(false);
       }
     };
 
     fetchLeagues();
-  }, []);
+  }, [user]);
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
@@ -52,19 +71,37 @@ export default function RosterPage() {
     setIsReplacementDrawerOpen(true);
   };
 
-  const handleSelectContestant = (contestant: Contestant) => {
-    if (selectedSlotIndex !== null) {
-      const newRoster = [...roster];
-      newRoster[selectedSlotIndex] = {
-        ...newRoster[selectedSlotIndex],
-        contestant,
-      };
-      setRoster(newRoster);
+  const handleSelectContestant = async (contestant: Contestant) => {
+    if (selectedSlotIndex === null || !selectedLeague) {
+      return;
+    }
+
+    const slot = roster[selectedSlotIndex];
+    if (!slot) {
+      return;
+    }
+
+    // Add contestant to roster via viewmodel (which writes to Supabase)
+    const success = await addContestantToRoster(contestant.id, slot.type, selectedSlotIndex);
+    
+    if (success) {
+      // Refresh roster to get latest data
+      await refreshRoster();
+      setIsReplacementDrawerOpen(false);
+      setSelectedSlotIndex(null);
+    } else {
+      console.error('Failed to add contestant to roster');
     }
   };
 
   const isContestantEliminated = (contestant: Contestant | null) => {
     if (!contestant) return false;
+    return contestant.status === 'eliminated' || contestant.status === 'jury';
+  };
+
+  const isFinal3ContestantEliminated = (contestant: Contestant | null) => {
+    if (!contestant) return false;
+    // For Final 3 picks, check if they've been eliminated (but not if they're in final3 status, which means they made it)
     return contestant.status === 'eliminated' || contestant.status === 'jury';
   };
 
@@ -80,10 +117,10 @@ export default function RosterPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoadingLeagues || isLoadingRoster) {
     return (
       <div className="max-w-4xl mx-auto p-4 lg:p-8">
-        <div className="text-center text-slate-400">Loading leagues...</div>
+        <div className="text-center text-slate-400">Loading...</div>
       </div>
     );
   }
@@ -101,33 +138,46 @@ export default function RosterPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 lg:p-8">
-      {/* League Selector and Invite Code */}
-      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <button
-          onClick={() => setIsSelectorOpen(true)}
-          className="w-full sm:w-auto flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all"
-        >
-          <Users className="w-5 h-5 text-slate-400" />
-          <span>{selectedLeague.name}</span>
-          <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
-        </button>
+      {/* League Header */}
+      <div className="mb-6">
+        {/* League Name - Main Heading */}
+        <div className="mb-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+            <button
+              onClick={() => setIsSelectorOpen(true)}
+              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+              title="Change league"
+            >
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+        </div>
 
-        {/* Invite Code */}
-        {selectedLeague.inviteCode && (
-          <button
-            onClick={handleCopyInviteCode}
-            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all group"
-            title="Click to copy invite code"
-          >
-            <span className="text-sm text-slate-400">Invite Code:</span>
-            <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
-            {copied ? (
-              <Check className="w-4 h-4 text-green-500" />
-            ) : (
-              <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-300 transition-colors" />
-            )}
-          </button>
-        )}
+        {/* Season Info and Invite Code - Subheadings */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-slate-400">
+          <p className="text-sm">
+            Survivor {selectedLeague.seasonNumber}: {selectedLeague.seasonName}
+          </p>
+          {selectedLeague.inviteCode && (
+            <>
+              <span className="hidden sm:inline text-slate-600">•</span>
+              <button
+                onClick={handleCopyInviteCode}
+                className="flex items-center gap-2 text-sm hover:text-slate-300 transition-colors group"
+                title="Click to copy invite code"
+              >
+                <span>Invite Code:</span>
+                <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-300 transition-colors" />
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Final 3 Section */}
@@ -138,34 +188,54 @@ export default function RosterPage() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {final3Slots.map((slot, index) => (
-            <div
-              key={index}
-              className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-6 relative overflow-hidden"
-              style={{ borderColor: '#BFFF0B' }}
-            >
-              {slot.contestant ? (
-                <>
-                  {/* Position Number */}
-                  <div className="absolute top-4 right-4 text-4xl opacity-20"
-                       style={{ color: '#BFFF0B' }}>
-                    {index + 1}
-                  </div>
-
-                  {/* Profile Picture */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-700 mb-3 border-2"
-                         style={{ borderColor: '#BFFF0B' }}>
-                      <img
-                        src={slot.contestant.imageUrl}
-                        alt={slot.contestant.name}
-                        className="w-full h-full object-cover"
-                      />
+          {final3Slots.map((slot, index) => {
+            const isEliminated = isFinal3ContestantEliminated(slot.contestant);
+            
+            return (
+              <div
+                key={index}
+                className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-6 relative overflow-hidden transition-all ${
+                  isEliminated ? 'opacity-60 grayscale' : ''
+                }`}
+                style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
+              >
+                {slot.contestant ? (
+                  <>
+                    {/* Eliminated Badge */}
+                    {isEliminated && (
+                      <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs bg-red-600 text-white z-10">
+                        Eliminated
+                      </div>
+                    )}
+                    
+                    {/* Position Number */}
+                    <div 
+                      className="absolute top-4 right-4 text-4xl opacity-20"
+                      style={{ color: isEliminated ? '#6B7280' : '#BFFF0B' }}
+                    >
+                      {index + 1}
                     </div>
-                    <h3 className="text-center text-xl">{slot.contestant.name}</h3>
-                  </div>
-                </>
-              ) : (
+
+                    {/* Profile Picture */}
+                    <div className="flex flex-col items-center">
+                      <div 
+                        className={`w-24 h-24 rounded-full overflow-hidden bg-slate-700 mb-3 border-2 ${
+                          isEliminated ? 'grayscale' : ''
+                        }`}
+                        style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
+                      >
+                        <img
+                          src={slot.contestant.imageUrl}
+                          alt={slot.contestant.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <h3 className={`text-center text-xl ${isEliminated ? 'text-slate-500' : ''}`}>
+                        {slot.contestant.name}
+                      </h3>
+                    </div>
+                  </>
+                ) : (
                 <>
                   {/* Position Number */}
                   <div className="absolute top-4 right-4 text-4xl opacity-20"
@@ -188,8 +258,9 @@ export default function RosterPage() {
                   </div>
                 </>
               )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -230,7 +301,12 @@ export default function RosterPage() {
                   <UserPlus className="w-10 h-10 text-slate-600" />
                 </div>
                 <button
-                  onClick={() => handleDraftClick(roster.indexOf(bootSlot!))}
+                  onClick={() => {
+                    const bootIndex = roster.findIndex(slot => slot.type === 'boot');
+                    if (bootIndex !== -1) {
+                      handleDraftClick(bootIndex);
+                    }
+                  }}
                   className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800"
                   style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
                 >
@@ -257,11 +333,16 @@ export default function RosterPage() {
       {/* Contestant Replacement Drawer */}
       <ContestantReplacementDrawer
         isOpen={isReplacementDrawerOpen}
-        onClose={() => setIsReplacementDrawerOpen(false)}
-        contestants={contestants}
-        currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex].contestant : null}
-        slotType={selectedSlotIndex !== null ? roster[selectedSlotIndex].type : 'final3'}
+        onClose={() => {
+          setIsReplacementDrawerOpen(false);
+          setSelectedSlotIndex(null);
+        }}
+        contestants={availableContestants}
+        currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
+        slotType={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.type || 'final3' : 'final3'}
+        slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
         onSelectContestant={handleSelectContestant}
+        roster={roster}
       />
     </div>
   );

@@ -102,7 +102,7 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
       {/* My Leagues */}
       <div className="mb-8">
         <h3 className="text-xl mb-4">My Leagues</h3>
-        <div className="space-y-3">
+        <div className="space-y-3 flex flex-col gap-4 py-4">
           {viewModel.isLoadingLeagues ? (
             <p className="text-slate-400 text-center py-4">Loading your leagues...</p>
           ) : viewModel.myLeagues.length === 0 ? (
@@ -111,7 +111,7 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
             </p>
           ) : (
             viewModel.myLeagues.map((league) => (
-              <button
+              <div
                 key={league.id}
                 onClick={() => {
                   // Convert UI League format to expected League format
@@ -144,14 +144,14 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>
       </div>
 
       {/* Available Seasons */}
-      <div>
+      {/* <div>
         <h3 className="text-xl mb-4">Available Seasons</h3>
         <div className="space-y-3">
           {availableSeasons.length === 0 ? (
@@ -180,7 +180,7 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
             ))
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* Modals */}
       <JoinLeagueModal

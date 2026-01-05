@@ -2,8 +2,17 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, Users, TrendingUp, TrendingDown, Minus, Crown, Award, Medal, Copy, Check } from 'lucide-react';
 import LeagueSelector from '../common/LeagueSelector';
 import { SupabaseService } from '../../services/supabaseService';
-import type { League } from '../../data/mockData';
 import type { LeagueStanding } from '../../models';
+
+interface League {
+  id: string;
+  name: string;
+  season: string;
+  seasonNumber: number;
+  seasonName: string;
+  memberCount: number;
+  inviteCode: string;
+}
 
 interface LeaguePageProps {
   initialLeague?: League | null;
@@ -109,33 +118,46 @@ export default function LeaguePage({ initialLeague }: LeaguePageProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-4 lg:p-8">
-      {/* League Selector and Invite Code */}
-      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <button
-          onClick={() => setIsSelectorOpen(true)}
-          className="w-full sm:w-auto flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all"
-        >
-          <Users className="w-5 h-5 text-slate-400" />
-          <span>{selectedLeague.name}</span>
-          <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
-        </button>
+      {/* League Header */}
+      <div className="mb-6">
+        {/* League Name - Main Heading */}
+        <div className="mb-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+            <button
+              onClick={() => setIsSelectorOpen(true)}
+              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+              title="Change league"
+            >
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+        </div>
 
-        {/* Invite Code */}
-        {selectedLeague.inviteCode && (
-          <button
-            onClick={handleCopyInviteCode}
-            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-800 hover:border-slate-700 transition-all group"
-            title="Click to copy invite code"
-          >
-            <span className="text-sm text-slate-400">Invite Code:</span>
-            <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
-            {copied ? (
-              <Check className="w-4 h-4 text-green-500" />
-            ) : (
-              <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-300 transition-colors" />
-            )}
-          </button>
-        )}
+        {/* Season Info and Invite Code - Subheadings */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-slate-400">
+          <p className="text-sm">
+            Survivor {selectedLeague.seasonNumber}: {selectedLeague.seasonName}
+          </p>
+          {selectedLeague.inviteCode && (
+            <>
+              <span className="hidden sm:inline text-slate-600">•</span>
+              <button
+                onClick={handleCopyInviteCode}
+                className="flex items-center gap-2 text-sm hover:text-slate-300 transition-colors group"
+                title="Click to copy invite code"
+              >
+                <span>Invite Code:</span>
+                <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-300 transition-colors" />
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Podium Visualization */}

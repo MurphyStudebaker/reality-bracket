@@ -435,11 +435,10 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 </div>
 
                 {/* Profile Image Section */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h3 className="text-sm text-slate-400 mb-3">PROFILE IMAGE</h3>
               <div className="bg-slate-800/50 rounded-xl p-4">
                 <div className="flex flex-col sm:flex-row items-center gap-4">
-                  {/* Image Preview */}
                   <div className="relative">
                     <div 
                       className="w-24 h-24 rounded-full overflow-hidden border-4 flex items-center justify-center text-3xl"
@@ -455,7 +454,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                       )}
                     </div>
                     
-                    {/* Camera Button */}
                     <label 
                       htmlFor="profile-upload"
                       className="absolute bottom-0 right-0 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer border-2 border-slate-900 transition-all hover:scale-110"
@@ -472,7 +470,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     </label>
                   </div>
 
-                  {/* Instructions */}
                   <div className="flex-1 text-center sm:text-left">
                     <p className="text-sm text-slate-300 mb-1">
                       Upload Your Photo
@@ -483,7 +480,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* League Display Names Section */}
             <div className="mb-6">

@@ -346,6 +346,8 @@ export class SupabaseService {
     id: string;
     name: string;
     season: string;
+    seasonNumber: number;
+    seasonName: string;
     memberCount: number;
     inviteCode: string;
   }>> {
@@ -403,6 +405,8 @@ export class SupabaseService {
             id: league.id,
             name: league.name,
             season: season.name || `Season ${season.number}`,
+            seasonNumber: season.number,
+            seasonName: season.name || `Season ${season.number}`,
             memberCount,
             inviteCode: league.invite_code,
           };
@@ -593,22 +597,67 @@ export class SupabaseService {
   }
 
   static async getSeasonById(seasonId: string): Promise<Season | null> {
-    // TODO: Connect to Supabase
-    // const { data } = await supabase.from('seasons').select('*').eq('id', seasonId).single()
-    // return data
-    return null;
+    try {
+      const { data, error } = await supabase
+        .from('seasons')
+        .select('*')
+        .eq('id', seasonId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching season:', error);
+        return null;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      // Transform database columns to TypeScript interface
+      return {
+        id: data.id,
+        name: data.name,
+        number: data.number,
+        status: data.status as 'active' | 'completed' | 'upcoming',
+        startDate: data.start_date,
+        endDate: data.end_date || undefined,
+      };
+    } catch (error) {
+      console.error('Error in getSeasonById:', error);
+      return null;
+    }
   }
 
   // CONTESTANT OPERATIONS
   static async getContestantsBySeason(seasonId: string): Promise<Contestant[]> {
-    // TODO: Connect to Supabase
-    // const { data } = await supabase
-    //   .from('contestants')
-    //   .select('*')
-    //   .eq('season_id', seasonId)
-    //   .order('name')
-    // return data
-    return [];
+    try {
+      const { data, error } = await supabase
+        .from('contestants')
+        .select('*')
+        .eq('season_id', seasonId)
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching contestants:', error);
+        return [];
+      }
+
+      // Transform database columns (snake_case) to TypeScript interface (camelCase)
+      return (data || []).map((contestant) => ({
+        id: contestant.id,
+        name: contestant.name,
+        age: contestant.age || 0,
+        occupation: contestant.occupation || '',
+        hometown: contestant.hometown || '',
+        imageUrl: contestant.image_url || '',
+        status: contestant.status as 'active' | 'eliminated' | 'jury' | 'final3',
+        eliminatedWeek: contestant.eliminated_week || undefined,
+        seasonId: contestant.season_id,
+      }));
+    } catch (error) {
+      console.error('Error in getContestantsBySeason:', error);
+      return [];
+    }
   }
 
   static async updateContestantStatus(
@@ -624,15 +673,57 @@ export class SupabaseService {
   }
 
   // ROSTER OPERATIONS
-  static async getRosterByUserAndLeague(userId: string, leagueId: string): Promise<RosterPick[]> {
-    // TODO: Connect to Supabase
-    // const { data } = await supabase
-    //   .from('roster_picks')
-    //   .select('*, contestants(*)')
-    //   .eq('user_id', userId)
-    //   .eq('league_id', leagueId)
-    // return data
-    return [];
+  static async getRosterByUserAndLeague(userId: string, leagueId: string): Promise<Array<RosterPick & { contestant: Contestant }>> {
+    try {
+      const { data, error } = await supabase
+        .from('roster_picks')
+        .select(`
+          *,
+          contestants (
+            id,
+            name,
+            age,
+            occupation,
+            hometown,
+            image_url,
+            status,
+            eliminated_week,
+            season_id
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('league_id', leagueId)
+        .order('picked_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching roster picks:', error);
+        return [];
+      }
+
+      // Transform database columns to TypeScript interface
+      return (data || []).map((pick: any) => ({
+        id: pick.id,
+        userId: pick.user_id,
+        leagueId: pick.league_id,
+        contestantId: pick.contestant_id,
+        pickType: pick.pick_type as 'final3' | 'boot',
+        pickedAt: pick.picked_at,
+        contestant: pick.contestants ? {
+          id: pick.contestants.id,
+          name: pick.contestants.name,
+          age: pick.contestants.age || 0,
+          occupation: pick.contestants.occupation || '',
+          hometown: pick.contestants.hometown || '',
+          imageUrl: pick.contestants.image_url || '',
+          status: pick.contestants.status as 'active' | 'eliminated' | 'jury' | 'final3',
+          eliminatedWeek: pick.contestants.eliminated_week || undefined,
+          seasonId: pick.contestants.season_id,
+        } : null as any,
+      })).filter((pick: any) => pick.contestant !== null);
+    } catch (error) {
+      console.error('Error in getRosterByUserAndLeague:', error);
+      return [];
+    }
   }
 
   static async addRosterPick(
@@ -641,20 +732,57 @@ export class SupabaseService {
     contestantId: string,
     pickType: 'final3' | 'boot'
   ): Promise<RosterPick | null> {
-    // TODO: Connect to Supabase
-    // const { data } = await supabase.from('roster_picks').insert({
-    //   user_id: userId,
-    //   league_id: leagueId,
-    //   contestant_id: contestantId,
-    //   pick_type: pickType
-    // }).select().single()
-    // return data
-    return null;
+    try {
+      const { data, error } = await supabase
+        .from('roster_picks')
+        .insert({
+          user_id: userId,
+          league_id: leagueId,
+          contestant_id: contestantId,
+          pick_type: pickType,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding roster pick:', error);
+        throw error;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      // Transform database columns to TypeScript interface
+      return {
+        id: data.id,
+        userId: data.user_id,
+        leagueId: data.league_id,
+        contestantId: data.contestant_id,
+        pickType: data.pick_type as 'final3' | 'boot',
+        pickedAt: data.picked_at,
+      };
+    } catch (error) {
+      console.error('Error in addRosterPick:', error);
+      throw error;
+    }
   }
 
   static async removeRosterPick(pickId: string): Promise<void> {
-    // TODO: Connect to Supabase
-    // await supabase.from('roster_picks').delete().eq('id', pickId)
+    try {
+      const { error } = await supabase
+        .from('roster_picks')
+        .delete()
+        .eq('id', pickId);
+
+      if (error) {
+        console.error('Error removing roster pick:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in removeRosterPick:', error);
+      throw error;
+    }
   }
 
   static async updateRosterPick(pickId: string, contestantId: string): Promise<void> {
