@@ -42,8 +42,20 @@ export default function LeaguePage({ initialLeague }: LeaguePageProps) {
         setLeagues(fetchedLeagues);
 
         // Set selected league based on initialLeague prop or first available
-        if (initialLeague && fetchedLeagues.find(l => l.id === initialLeague.id)) {
-          setSelectedLeague(initialLeague);
+        if (initialLeague) {
+          // Try to find by ID first (UUID string)
+          const matchedLeague = fetchedLeagues.find(l => l.id === initialLeague.id);
+          
+          // If ID doesn't match (e.g., HomePage uses numeric IDs), try matching by name and season
+          const fallbackMatch = matchedLeague || fetchedLeagues.find(
+            l => l.name === initialLeague.name && l.season === initialLeague.season
+          );
+          
+          if (fallbackMatch) {
+            setSelectedLeague(fallbackMatch);
+          } else if (fetchedLeagues.length > 0) {
+            setSelectedLeague(fetchedLeagues[0]);
+          }
         } else if (fetchedLeagues.length > 0) {
           setSelectedLeague(fetchedLeagues[0]);
         }

@@ -114,9 +114,11 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
               <div
                 key={league.id}
                 onClick={() => {
+                  // Get the actual UUID for this league
+                  const leagueUuid = viewModel.getLeagueUuid(league.id) || league.id.toString();
                   // Convert UI League format to expected League format
                   onLeagueClick({
-                    id: league.id.toString(),
+                    id: leagueUuid,
                     name: league.name,
                     season: league.season,
                     memberCount: league.members || 0,

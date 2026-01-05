@@ -14,6 +14,7 @@ import type {
   ContestantScore,
 } from '../models';
 import type { League as UILeague } from '../models/types';
+import { generateSurvivorUsername } from '../models/constants';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -470,12 +471,47 @@ export class SupabaseService {
         throw leagueError || new Error('Failed to create league');
       }
 
-      // Add creator as member
+      // Get user's username from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', userId)
+        .single();
+
+      let displayName: string;
+      if (userError || !userData || !userData.username) {
+        // Generate a Survivor-themed username if user doesn't have one
+        // Try up to 5 times to ensure uniqueness
+        let attempts = 0;
+        let updateError = null;
+        do {
+          displayName = generateSurvivorUsername();
+          
+          // Update the users table with the generated username
+          const { error } = await supabase
+            .from('users')
+            .update({ username: displayName })
+            .eq('id', userId);
+          
+          updateError = error;
+          attempts++;
+        } while (updateError && updateError.code === '23505' && attempts < 5); // 23505 is unique violation
+        
+        if (updateError && updateError.code !== '23505') {
+          console.error('Error updating username:', updateError);
+          // Continue anyway with the generated username for display_name
+        }
+      } else {
+        displayName = userData.username;
+      }
+
+      // Add creator as member with display_name set to username
       const { error: memberError } = await supabase
         .from('league_members')
         .insert({
           league_id: league.id,
           user_id: userId,
+          display_name: displayName,
         });
       if (memberError) {
         console.error('Error adding creator as member:', memberError);

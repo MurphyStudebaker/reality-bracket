@@ -187,39 +187,24 @@ export default function RosterPage() {
           <h2 className="text-2xl">Final 3 Picks</h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-4">
           {final3Slots.map((slot, index) => {
             const isEliminated = isFinal3ContestantEliminated(slot.contestant);
             
             return (
               <div
                 key={index}
-                className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-6 relative overflow-hidden transition-all ${
+                className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-4 relative overflow-hidden transition-all ${
                   isEliminated ? 'opacity-60 grayscale' : ''
                 }`}
                 style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
               >
                 {slot.contestant ? (
-                  <>
-                    {/* Eliminated Badge */}
-                    {isEliminated && (
-                      <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs bg-red-600 text-white z-10">
-                        Eliminated
-                      </div>
-                    )}
-                    
-                    {/* Position Number */}
-                    <div 
-                      className="absolute top-4 right-4 text-4xl opacity-20"
-                      style={{ color: isEliminated ? '#6B7280' : '#BFFF0B' }}
-                    >
-                      {index + 1}
-                    </div>
-
-                    {/* Profile Picture */}
-                    <div className="flex flex-col items-center">
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Left Side: Image, Name, Occupation */}
+                    <div className="flex items-center gap-4 flex-1">
                       <div 
-                        className={`w-24 h-24 rounded-full overflow-hidden bg-slate-700 mb-3 border-2 ${
+                        className={`w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0 ${
                           isEliminated ? 'grayscale' : ''
                         }`}
                         style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
@@ -230,34 +215,60 @@ export default function RosterPage() {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <h3 className={`text-center text-xl ${isEliminated ? 'text-slate-500' : ''}`}>
-                        {slot.contestant.name}
-                      </h3>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-lg font-semibold ${isEliminated ? 'text-slate-500' : 'text-white'}`}>
+                          {slot.contestant.name}
+                        </h3>
+                        <p className={`text-sm ${isEliminated ? 'text-slate-600' : 'text-slate-400'}`}>
+                          {slot.contestant.occupation || 'N/A'}
+                        </p>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                <>
-                  {/* Position Number */}
-                  <div className="absolute top-4 right-4 text-4xl opacity-20"
-                       style={{ color: '#BFFF0B' }}>
-                    {index + 1}
-                  </div>
 
-                  {/* Empty Slot State */}
-                  <div className="flex flex-col items-center justify-center h-full py-4">
-                    <div className="w-24 h-24 rounded-full bg-slate-800/50 mb-4 border-2 border-dashed border-slate-700 flex items-center justify-center">
-                      <UserPlus className="w-10 h-10 text-slate-600" />
+                    {/* Right Side: Status and Points */}
+                    <div className="flex items-center gap-6 flex-shrink-0">
+                      {/* Status Badge */}
+                      <div>
+                        {isEliminated ? (
+                          <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
+                            Eliminated
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs bg-green-600 text-white font-semibold">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Points */}
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${isEliminated ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
+                          0
+                        </div>
+                        <div className="text-xs text-slate-500">points</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-700 flex items-center justify-center flex-shrink-0">
+                        <UserPlus className="w-8 h-8 text-slate-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-slate-400">Empty Slot {index + 1}</h3>
+                        <p className="text-sm text-slate-500">No contestant selected</p>
+                      </div>
                     </div>
                     <button
-                      onClick={() => handleDraftClick(index)}
-                      className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800"
+                      onClick={() => handleDraftClick(final3Slots.indexOf(slot))}
+                      className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800 flex-shrink-0"
                       style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
                     >
                       Draft Player
                     </button>
                   </div>
-                </>
-              )}
+                )}
               </div>
             );
           })}
@@ -271,49 +282,78 @@ export default function RosterPage() {
           <h2 className="text-2xl">Next Boot Pick</h2>
         </div>
 
-        <div className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-6 max-w-md relative overflow-hidden ${
-          bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'opacity-60' : ''
+        <div className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-4 relative overflow-hidden ${
+          bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'opacity-60 grayscale' : ''
         }`}>
           {bootSlot?.contestant ? (
-            <>
-              {/* Boot Badge */}
-              <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs bg-red-600 text-white">
-                BOOT
-              </div>
-
-              {/* Profile Picture */}
-              <div className="flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-700 mb-3 border-2 border-red-500">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left Side: Image, Name, Occupation */}
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 border-red-500 flex-shrink-0">
                   <img
                     src={bootSlot.contestant.imageUrl}
                     alt={bootSlot.contestant.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <h3 className="text-center text-xl">{bootSlot.contestant.name}</h3>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Empty Slot State */}
-              <div className="flex flex-col items-center justify-center py-4">
-                <div className="w-24 h-24 rounded-full bg-slate-800/50 mb-4 border-2 border-dashed border-red-500/50 flex items-center justify-center">
-                  <UserPlus className="w-10 h-10 text-slate-600" />
+                <div className="flex-1 min-w-0">
+                  <h3 className={`text-lg font-semibold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-500' : 'text-white'}`}>
+                    {bootSlot.contestant.name}
+                  </h3>
+                  <p className={`text-sm ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-slate-400'}`}>
+                    {bootSlot.contestant.occupation || 'N/A'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => {
-                    const bootIndex = roster.findIndex(slot => slot.type === 'boot');
-                    if (bootIndex !== -1) {
-                      handleDraftClick(bootIndex);
-                    }
-                  }}
-                  className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800"
-                  style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                >
-                  Draft Player
-                </button>
               </div>
-            </>
+
+              {/* Right Side: Status and Points */}
+              <div className="flex items-center gap-6 flex-shrink-0">
+                {/* Status Badge */}
+                <div>
+                  {isContestantEliminated(bootSlot.contestant) ? (
+                    <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
+                      Eliminated
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
+                      BOOT
+                    </span>
+                  )}
+                </div>
+                
+                {/* Points */}
+                <div className="text-right">
+                  <div className={`text-2xl font-bold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
+                    0
+                  </div>
+                  <div className="text-xs text-slate-500">points</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-4">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
+                  <UserPlus className="w-8 h-8 text-slate-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-400">Empty Slot</h3>
+                  <p className="text-sm text-slate-500">No contestant selected</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const bootIndex = roster.findIndex(slot => slot.type === 'boot');
+                  if (bootIndex !== -1) {
+                    handleDraftClick(bootIndex);
+                  }
+                }}
+                className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800 flex-shrink-0"
+                style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
+              >
+                Draft Player
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -23,6 +23,7 @@ export const useHomeViewModel = () => {
   const [createLeagueError, setCreateLeagueError] = useState<string | null>(null);
   const [joinLeagueError, setJoinLeagueError] = useState<string | null>(null);
   const [myLeagues, setMyLeagues] = useState<League[]>([]);
+  const [leagueUuidMap, setLeagueUuidMap] = useState<Map<number, string>>(new Map());
   const [isLoadingLeagues, setIsLoadingLeagues] = useState(true);
 
   // Helper function to convert UUID string to number (for UI compatibility)
@@ -43,22 +44,31 @@ export const useHomeViewModel = () => {
       const user = await SupabaseService.getCurrentUser();
       if (!user) {
         setMyLeagues([]);
+        setLeagueUuidMap(new Map());
         return;
       }
 
       const uiLeaguesData = await SupabaseService.getUILeaguesByUserId(user.id);
       
+      // Create map of numeric ID to UUID
+      const uuidMap = new Map<number, string>();
+      
       // Transform to UI League format
-      const transformedLeagues: League[] = uiLeaguesData.map((data) => ({
-        id: uuidToNumber(data.league.id), // Convert UUID to number
-        name: data.league.name,
-        season: data.seasonName,
-        members: data.memberCount,
-        rank: data.userRank,
-        points: data.userPoints,
-      }));
+      const transformedLeagues: League[] = uiLeaguesData.map((data) => {
+        const numericId = uuidToNumber(data.league.id);
+        uuidMap.set(numericId, data.league.id); // Store UUID mapping
+        return {
+          id: numericId, // Convert UUID to number
+          name: data.league.name,
+          season: data.seasonName,
+          members: data.memberCount,
+          rank: data.userRank,
+          points: data.userPoints,
+        };
+      });
 
       setMyLeagues(transformedLeagues);
+      setLeagueUuidMap(uuidMap);
     } catch (error) {
       console.error("Error refreshing leagues:", error);
     }
@@ -118,6 +128,28 @@ export const useHomeViewModel = () => {
           };
         });
         setAvailableSeasonsForCreate(filteredSeasonsForCreate);
+        
+        // Auto-select the season with the closest start date
+        if (filteredDbSeasonsForCreate.length > 0) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0); // Normalize to start of day
+          
+          let closestSeason = filteredDbSeasonsForCreate[0];
+          let closestDistance = Math.abs(new Date(closestSeason.startDate).getTime() - today.getTime());
+          
+          for (const season of filteredDbSeasonsForCreate) {
+            const seasonDate = new Date(season.startDate);
+            seasonDate.setHours(0, 0, 0, 0);
+            const distance = Math.abs(seasonDate.getTime() - today.getTime());
+            
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestSeason = season;
+            }
+          }
+          
+          setSelectedSeason(closestSeason.number);
+        }
         
         // Transform ALL database Season to UI Season type (for general display)
         const transformedSeasons: Season[] = fetchedDbSeasons.map((dbSeason: DbSeason) => {
@@ -271,6 +303,11 @@ export const useHomeViewModel = () => {
     setViewingSeason(null);
   };
 
+  // Get UUID for a league by numeric ID
+  const getLeagueUuid = (numericId: number): string | undefined => {
+    return leagueUuidMap.get(numericId);
+  };
+
   return {
     // State
     isSheetOpen,
@@ -284,6 +321,7 @@ export const useHomeViewModel = () => {
     // Data
     myLeagues,
     isLoadingLeagues,
+    getLeagueUuid,
     seasons,
     availableSeasonsForCreate, // Filtered seasons for Create League modal
     isLoadingSeasons,

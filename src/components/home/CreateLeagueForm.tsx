@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
@@ -11,6 +12,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Season } from "../../models/types";
+import { getRandomLeagueNamePun } from "../../models/constants";
 
 interface CreateLeagueFormProps {
   leagueName: string;
@@ -35,6 +37,8 @@ export const CreateLeagueForm = ({
   onSubmit,
   canSubmit,
 }: CreateLeagueFormProps) => {
+  const placeholderText = useMemo(() => getRandomLeagueNamePun(), []);
+
   return (
     <div className="space-y-6 mt-8 pb-6 px-1 min-h-[500px]">
       <div className="space-y-2">
@@ -43,7 +47,7 @@ export const CreateLeagueForm = ({
         </Label>
         <Input
           id="leagueName"
-          placeholder="e.g., Office League"
+          placeholder={`e.g., ${placeholderText}`}
           value={leagueName}
           onChange={(e) => onLeagueNameChange(e.target.value)}
           className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 h-12"

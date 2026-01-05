@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Calendar, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { Season } from '../../models/types';
+import { getRandomLeagueNamePun } from '../../models/constants';
 
 interface CreateLeagueModalProps {
   isOpen: boolean;
@@ -39,11 +40,19 @@ export default function CreateLeagueModal({
   const [localDraftDate, setLocalDraftDate] = useState(
     draftDate.toISOString().slice(0, 16)
   );
+  const [placeholderText, setPlaceholderText] = useState(getRandomLeagueNamePun());
 
   // Update local draft date when prop changes
   useEffect(() => {
     setLocalDraftDate(draftDate.toISOString().slice(0, 16));
   }, [draftDate]);
+
+  // Generate new random placeholder when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setPlaceholderText(getRandomLeagueNamePun());
+    }
+  }, [isOpen]);
 
   // Clear error when modal closes
   useEffect(() => {
@@ -117,7 +126,7 @@ export default function CreateLeagueModal({
                 type="text"
                 value={leagueName}
                 onChange={(e) => onLeagueNameChange(e.target.value)}
-                placeholder="e.g. Survivor Superfans"
+                placeholder={`e.g., ${placeholderText}`}
                 className="w-full px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-teal-600 transition-colors text-white"
                 maxLength={50}
                 disabled={isCreating}

@@ -559,6 +559,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 {/* Support Section */}
                 <div>
                   <h3 className="text-sm text-slate-400 mb-3">SUPPORT</h3>
+                  <p className="text-xs text-slate-400 my-3">This app is built by an individual developer. If you have any issues or feedback, please contact me.</p>
                   <a
                     href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
                     className="block bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all"
