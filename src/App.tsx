@@ -21,8 +21,8 @@ export default function App() {
 
   const navItems = [
     { id: 'home' as ScreenType, label: 'Home', icon: Home },
-    { id: 'roster' as ScreenType, label: 'Roster', icon: Users },
-    { id: 'league' as ScreenType, label: 'League', icon: Trophy },
+    { id: 'roster' as ScreenType, label: 'Rosters', icon: Users },
+    { id: 'league' as ScreenType, label: 'Leagues', icon: Trophy },
   ];
 
   const handleNavigation = (screen: ScreenType) => {
@@ -61,7 +61,7 @@ export default function App() {
         
         {/* Right Side Buttons */}
         <div className="flex items-center gap-2">
-          <button
+          {/* <button
             onClick={() => setIsActivityDrawerOpen(true)}
             className="p-2 rounded-lg border-2 transition-all hover:bg-slate-800"
             style={{ 
@@ -71,7 +71,7 @@ export default function App() {
             aria-label="View latest activity"
           >
             <Bell className="w-5 h-5" />
-          </button>
+          </button> */}
           
           <button
             onClick={() => setIsProfileDrawerOpen(true)}
