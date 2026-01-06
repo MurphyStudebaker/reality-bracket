@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Camera, Check, Mail, LogOut } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
@@ -20,8 +20,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
   const [tempDisplayName, setTempDisplayName] = useState('');
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [leagueDisplayNames, setLeagueDisplayNames] = useState<Record<string, string>>({});
 
   // Login/Signup form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -36,17 +34,23 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Clear error when drawer opens
+  // Clear error when drawer opens (only once when it first opens)
+  const prevIsOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen && auth.clearError) {
+    if (isOpen && !prevIsOpenRef.current && auth.clearError) {
+      prevIsOpenRef.current = true;
       auth.clearError();
+    } else if (!isOpen) {
+      prevIsOpenRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Clear error when switching tabs
+  // Clear error when switching tabs (only when tab actually changes)
+  const prevActiveTabRef = useRef(activeTab);
   useEffect(() => {
-    if (auth.clearError) {
+    if (activeTab !== prevActiveTabRef.current && auth.clearError) {
+      prevActiveTabRef.current = activeTab;
       auth.clearError();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,34 +58,17 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', auth.user?.id);
-  const { data: fetchedLeagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
+  const { data: leagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
     isOpen && auth.isAuthenticated ? leaguesKey : null,
     fetcher
   );
 
   // Fetch display names using SWR
   const displayNamesKey = createKey('league-display-names', auth.user?.id);
-  const { data: fetchedDisplayNames = {}, mutate: mutateDisplayNames } = useSWR<Record<string, string>>(
+  const { data: leagueDisplayNames = {}, mutate: mutateDisplayNames } = useSWR<Record<string, string>>(
     isOpen && auth.isAuthenticated ? displayNamesKey : null,
     fetcher
   );
-
-  // Update local state when SWR data changes
-  useEffect(() => {
-    if (fetchedLeagues.length > 0) {
-      setLeagues(fetchedLeagues);
-    } else if (!auth.isAuthenticated) {
-      setLeagues([]);
-    }
-  }, [fetchedLeagues, auth.isAuthenticated]);
-
-  useEffect(() => {
-    if (fetchedDisplayNames && Object.keys(fetchedDisplayNames).length > 0) {
-      setLeagueDisplayNames(fetchedDisplayNames);
-    } else if (!auth.isAuthenticated) {
-      setLeagueDisplayNames({});
-    }
-  }, [fetchedDisplayNames, auth.isAuthenticated]);
 
   if (!isOpen) return null;
 
@@ -198,8 +185,8 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-800">
             <div>
-              <h2 className="text-xl">Profile Settings</h2>
-              <p className="text-sm text-slate-400 mt-1">Manage your profile and settings</p>
+              <h2 className="text-xl">{auth.isAuthenticated ? 'Profile Settings' : 'Come On In, Guys'}</h2>
+              <p className="text-sm text-slate-400 mt-1">{auth.isAuthenticated ? 'Manage your profile and settings' : 'No spam ever <3'}</p>
             </div>
             <button
               onClick={onClose}
