@@ -127,13 +127,54 @@ export const useAuthViewModel = () => {
     }
   };
 
+  // Sign in with OAuth provider
+  const signInWithOAuth = async (provider: 'google' | 'apple'): Promise<void> => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      await SupabaseService.signInWithOAuth(provider);
+      // OAuth redirects the user, so we don't need to set user here
+      // The auth state change listener will handle it
+    } catch (err: any) {
+      console.error(`Error signing in with ${provider}:`, err);
+      setError(err?.message || `Failed to sign in with ${provider}. Please try again.`);
+      setIsLoading(false);
+    }
+  };
+
   // Initialize auth check
   useEffect(() => {
     let mounted = true;
 
+    // Check for password recovery in URL hash
+    const checkPasswordRecovery = () => {
+      if (typeof window === 'undefined') return;
+      
+      const hash = window.location.hash;
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const type = hashParams.get('type');
+        const accessToken = hashParams.get('access_token');
+        
+        // Check if this is a password recovery flow
+        // Supabase adds type=recovery and access_token to the hash when redirecting from password reset email
+        if (type === 'recovery' && accessToken) {
+          console.log('Password recovery detected in URL hash');
+          if (mounted) {
+            setIsPasswordRecovery(true);
+          }
+          // Clean up the URL hash after detecting it
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    };
+
     // Check for session immediately on mount
     const checkInitialSession = async () => {
       try {
+        // First check for password recovery in URL
+        checkPasswordRecovery();
+        
         const supabase = SupabaseService.getClient();
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -258,6 +299,7 @@ export const useAuthViewModel = () => {
     signUp,
     signIn,
     signOut,
+    signInWithOAuth,
     requestPasswordReset,
     updatePassword,
     refreshAuth: checkAuth,

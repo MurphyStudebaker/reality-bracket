@@ -1,6 +1,6 @@
 // ViewModel for Roster Page - handles user roster management
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { SupabaseService } from '../services/supabaseService';
@@ -36,13 +36,46 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     fetcher
   );
 
+  // Fetch points for each pick
+  const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
+  
+  useEffect(() => {
+    if (!userId || !leagueId || !picks || picks.length === 0) {
+      setPickPointsMap({});
+      return;
+    }
+
+    const fetchPickPoints = async () => {
+      const pointsMap: Record<string, number> = {};
+      
+      // Calculate points for each pick
+      await Promise.all(
+        picks.map(async (pick) => {
+          if (pick.contestant) {
+            const points = await SupabaseService.calculatePickPoints(
+              userId,
+              leagueId,
+              pick.contestant.id,
+              pick.pickType
+            );
+            pointsMap[pick.id] = points;
+          }
+        })
+      );
+
+      setPickPointsMap(pointsMap);
+    };
+
+    fetchPickPoints();
+  }, [userId, leagueId, picks]);
+
   // Transform picks into roster slots
   const roster = useMemo<RosterSlot[]>(() => {
     const rosterSlots: RosterSlot[] = [
-      { type: 'final3', contestant: null },
-      { type: 'final3', contestant: null },
-      { type: 'final3', contestant: null },
-      { type: 'boot', contestant: null },
+      { type: 'final3', contestant: null, points: 0 },
+      { type: 'final3', contestant: null, points: 0 },
+      { type: 'final3', contestant: null, points: 0 },
+      { type: 'boot', contestant: null, points: 0 },
     ];
 
     if (picks && picks.length > 0) {
@@ -54,17 +87,21 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
       final3Picks.forEach((pick, index) => {
         if (index < 3 && pick.contestant) {
           rosterSlots[index].contestant = pick.contestant;
+          rosterSlots[index].points = pickPointsMap[pick.id] || 0;
+          rosterSlots[index].pickId = pick.id;
         }
       });
       
       // Fill boot slot (only one)
       if (bootPicks.length > 0 && bootPicks[0].contestant) {
         rosterSlots[3].contestant = bootPicks[0].contestant;
+        rosterSlots[3].points = pickPointsMap[bootPicks[0].id] || 0;
+        rosterSlots[3].pickId = bootPicks[0].id;
       }
     }
 
     return rosterSlots;
-  }, [picks]);
+  }, [picks, pickPointsMap]);
 
   // Combine all errors
   const error = rosterError || seasonError || contestantsError || pointsError 
@@ -80,6 +117,8 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     if (pointsKey) await mutate(pointsKey);
     // Also refresh contestants if seasonId changes
     if (contestantsKey) await mutate(contestantsKey);
+    // Reset pick points map to trigger recalculation
+    setPickPointsMap({});
   };
 
   // Add a contestant to roster

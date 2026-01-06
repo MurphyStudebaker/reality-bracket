@@ -164,8 +164,12 @@ export class SupabaseService {
 
   static async resetPasswordForEmail(email: string, redirectTo?: string): Promise<void> {
     try {
+      // Use the current origin - Supabase will automatically append the access_token
+      // and type=recovery to the hash fragment when redirecting
+      // The redirectTo should be the base URL without hash fragments
+      const resetUrl = redirectTo || `${window.location.origin}${window.location.pathname}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo || `${window.location.origin}/reset-password`,
+        redirectTo: resetUrl,
       });
       if (error) {
         console.error('Error resetting password:', error);
@@ -188,6 +192,29 @@ export class SupabaseService {
       }
     } catch (error) {
       console.error('Error in updatePassword:', error);
+      throw error;
+    }
+  }
+
+  // OAuth sign-in methods
+  static async signInWithOAuth(provider: 'google' | 'apple', redirectTo?: string): Promise<void> {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectTo || window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) {
+        console.error(`Error signing in with ${provider}:`, error);
+        throw error;
+      }
+    } catch (error) {
+      console.error(`Error in signInWithOAuth (${provider}):`, error);
       throw error;
     }
   }
@@ -262,7 +289,6 @@ export class SupabaseService {
         .from('league_members')
         .select(`
           league_id,
-          total_points,
           leagues!inner(
             id,
             name,
@@ -277,8 +303,7 @@ export class SupabaseService {
             )
           )
         `)
-        .eq('user_id', userId)
-        .order('total_points', { ascending: false });
+        .eq('user_id', userId);
 
       if (memberError) {
         console.error('Error fetching user leagues:', memberError);
@@ -289,7 +314,7 @@ export class SupabaseService {
         return [];
       }
 
-      // For each league, get member count and calculate user's rank
+      // For each league, get member count, calculate points, and calculate user's rank
       const result = await Promise.all(
         memberData.map(async (member: any) => {
           const league = member.leagues;
@@ -303,19 +328,30 @@ export class SupabaseService {
 
           const memberCount = count || 0;
 
-          // Get all members ordered by total_points to calculate rank
+          // Calculate user's points dynamically based on activity events
+          const userPoints = await this.calculateUserPoints(userId, league.id);
+
+          // Get all members and calculate their points to determine rank
           const { data: allMembers } = await supabase
             .from('league_members')
-            .select('user_id, total_points')
-            .eq('league_id', league.id)
-            .order('total_points', { ascending: false });
+            .select('user_id')
+            .eq('league_id', league.id);
 
-          // Calculate user's rank (1-based)
-          let userRank = 1;
-          if (allMembers) {
-            const rankIndex = allMembers.findIndex((m: any) => m.user_id === userId);
-            userRank = rankIndex >= 0 ? rankIndex + 1 : memberCount;
-          }
+          // Calculate points for all members to determine ranking
+          const membersWithPoints = await Promise.all(
+            (allMembers || []).map(async (m: any) => {
+              const points = await this.calculateUserPoints(m.user_id, league.id);
+              return {
+                userId: m.user_id,
+                points,
+              };
+            })
+          );
+
+          // Sort by points (descending) and find user's rank
+          membersWithPoints.sort((a, b) => b.points - a.points);
+          const rankIndex = membersWithPoints.findIndex((m) => m.userId === userId);
+          const userRank = rankIndex >= 0 ? rankIndex + 1 : memberCount;
 
           return {
             league: {
@@ -330,10 +366,13 @@ export class SupabaseService {
             seasonName: season.name || `Season ${season.number}`,
             memberCount,
             userRank,
-            userPoints: member.total_points,
+            userPoints,
           };
         })
       );
+
+      // Sort results by points (descending) for consistent ordering
+      result.sort((a, b) => b.userPoints - a.userPoints);
 
       return result;
     } catch (error) {
@@ -831,12 +870,32 @@ export class SupabaseService {
   // STANDINGS OPERATIONS
   static async getLeagueStandings(leagueId: string): Promise<LeagueStanding[]> {
     try {
+      // Get league to find season_id
+      const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('season_id')
+        .eq('id', leagueId)
+        .single();
+
+      if (leagueError || !league) {
+        console.error('Error fetching league:', leagueError);
+        return [];
+      }
+
+      const seasonId = league.season_id;
+      if (!seasonId) {
+        return [];
+      }
+
+      // Get current week and previous week
+      const currentWeek = await this.getCurrentWeek(seasonId);
+      const previousWeek = Math.max(0, currentWeek - 1);
+
       // Only query league_members table - no joins with users table
       const { data: memberData, error: memberError } = await supabase
         .from('league_members')
-        .select('user_id, total_points, display_name')
-        .eq('league_id', leagueId)
-        .order('total_points', { ascending: false });
+        .select('user_id, display_name')
+        .eq('league_id', leagueId);
 
       if (memberError || !memberData || memberData.length === 0) {
         if (memberError) {
@@ -847,20 +906,39 @@ export class SupabaseService {
         return [];
       }
 
-      // Transform to LeagueStanding format
-      // Use display_name from league_members if available, otherwise show generic name
-      const standings: LeagueStanding[] = memberData.map((member: any, index: number) => {
-        // Use display_name if set, otherwise show "Player" with first 8 chars of user_id
-        const displayName = member.display_name || `Player ${member.user_id.substring(0, 8)}`;
-        return {
-          rank: index + 1,
-          userId: member.user_id,
-          username: displayName,
-          points: member.total_points ?? 0,
-          change: 0,
-          leagueId: leagueId,
-        };
-      });
+      // Calculate points for each member
+      const standingsWithPoints = await Promise.all(
+        memberData.map(async (member: any) => {
+          // Calculate current total points
+          const currentPoints = await this.calculateUserPoints(member.user_id, leagueId);
+          
+          // Calculate previous week points
+          const previousPoints = previousWeek > 0
+            ? await this.calculateUserPointsForWeek(member.user_id, leagueId, previousWeek)
+            : 0;
+
+          // Calculate change (current - previous)
+          const change = currentPoints - previousPoints;
+
+          // Use display_name if set, otherwise show "Player" with first 8 chars of user_id
+          const displayName = member.display_name || `Player ${member.user_id.substring(0, 8)}`;
+
+          return {
+            userId: member.user_id,
+            username: displayName,
+            points: currentPoints,
+            change: change,
+            leagueId: leagueId,
+          };
+        })
+      );
+
+      // Sort by points (descending) and assign ranks
+      standingsWithPoints.sort((a, b) => b.points - a.points);
+      const standings: LeagueStanding[] = standingsWithPoints.map((standing, index) => ({
+        ...standing,
+        rank: index + 1,
+      }));
 
       console.log('Standings:', standings);
       return standings;
@@ -937,6 +1015,102 @@ export class SupabaseService {
       return true;
     } catch (error) {
       console.error('Error in updateLeagueDisplayName:', error);
+      return false;
+    }
+  }
+
+  // Get league members with usernames for draft order
+  static async getLeagueMembersForDraftOrder(leagueId: string): Promise<Array<{
+    id: string;
+    userId: string;
+    username: string;
+    displayName: string | null;
+    draftOrder: number | null;
+    joinedAt: string;
+  }>> {
+    try {
+      // First, get league members
+      const { data: memberData, error: memberError } = await supabase
+        .from('league_members')
+        .select('id, user_id, display_name, draft_order, joined_at')
+        .eq('league_id', leagueId)
+        .order('draft_order', { ascending: true, nullsFirst: false })
+        .order('joined_at', { ascending: true });
+
+      if (memberError) {
+        console.error('Error fetching league members:', memberError);
+        return [];
+      }
+
+      if (!memberData || memberData.length === 0) {
+        return [];
+      }
+
+      // Get user IDs and fetch usernames
+      const userIds = memberData.map((m: any) => m.user_id);
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username')
+        .in('id', userIds);
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+      }
+
+      // Create a map of user_id to username
+      const usersMap = new Map<string, string>();
+      if (usersData) {
+        usersData.forEach((user: any) => {
+          usersMap.set(user.id, user.username);
+        });
+      }
+
+      // Transform the data
+      return memberData.map((member: any) => {
+        const username = usersMap.get(member.user_id) || 'Unknown';
+        const displayName = member.display_name || username || `Player ${member.user_id.substring(0, 8)}`;
+        return {
+          id: member.id,
+          userId: member.user_id,
+          username: username,
+          displayName: member.display_name,
+          draftOrder: member.draft_order,
+          joinedAt: member.joined_at,
+        };
+      });
+    } catch (error) {
+      console.error('Error in getLeagueMembersForDraftOrder:', error);
+      return [];
+    }
+  }
+
+  // Update draft order for league members
+  static async updateDraftOrder(
+    leagueId: string,
+    memberOrders: Array<{ memberId: string; draftOrder: number }>
+  ): Promise<boolean> {
+    try {
+      // Use a transaction-like approach with multiple updates
+      const updates = memberOrders.map(({ memberId, draftOrder }) =>
+        supabase
+          .from('league_members')
+          .update({ draft_order: draftOrder })
+          .eq('id', memberId)
+          .eq('league_id', leagueId)
+      );
+
+      const results = await Promise.all(updates);
+      
+      // Check if any updates failed
+      const hasError = results.some(result => result.error);
+      if (hasError) {
+        console.error('Error updating draft order:', results.find(r => r.error)?.error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in updateDraftOrder:', error);
       return false;
     }
   }
@@ -1062,15 +1236,341 @@ export class SupabaseService {
   }
 
   static async calculateUserPoints(userId: string, leagueId: string): Promise<number> {
-    // TODO: Connect to Supabase
-    // Complex calculation based on roster picks and contestant scores
-    // const { data: picks } = await supabase
-    //   .from('roster_picks')
-    //   .select('*, contestants(contestant_scores(*))')
-    //   .eq('user_id', userId)
-    //   .eq('league_id', leagueId)
-    // Calculate total points from all contestants
-    return 0;
+    try {
+      const { data, error } = await supabase.rpc('calculate_user_total_points', {
+        p_user_id: userId,
+        p_league_id: leagueId,
+        p_week_number: null, // null means all weeks
+      });
+
+      if (error) {
+        console.error('Error calculating user points:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error in calculateUserPoints:', error);
+      return 0;
+    }
+  }
+
+  // ACTIVITY EVENTS OPERATIONS
+  static async addActivityEvent(
+    seasonId: string,
+    contestantId: string,
+    weekNumber: number,
+    activityType: 'immunity' | 'eliminated' | 'medical_evacuated' | 'made_merge' | 'made_final_three' | 'made_jury'
+  ): Promise<{ id: string } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('activity_events')
+        .insert({
+          season_id: seasonId,
+          contestant_id: contestantId,
+          week_number: weekNumber,
+          activity_type: activityType,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Error adding activity event:', error);
+        throw error;
+      }
+
+      return data ? { id: data.id } : null;
+    } catch (error) {
+      console.error('Error in addActivityEvent:', error);
+      throw error;
+    }
+  }
+
+  static async getActivityEvents(
+    seasonId: string,
+    weekNumber?: number
+  ): Promise<Array<{
+    id: string;
+    seasonId: string;
+    contestantId: string;
+    weekNumber: number;
+    activityType: string;
+    createdAt: string;
+  }>> {
+    try {
+      let query = supabase
+        .from('activity_events')
+        .select('*')
+        .eq('season_id', seasonId)
+        .order('week_number', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (weekNumber !== undefined) {
+        query = query.eq('week_number', weekNumber);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching activity events:', error);
+        return [];
+      }
+
+      return (data || []).map((event: any) => ({
+        id: event.id,
+        seasonId: event.season_id,
+        contestantId: event.contestant_id,
+        weekNumber: event.week_number,
+        activityType: event.activity_type,
+        createdAt: event.created_at,
+      }));
+    } catch (error) {
+      console.error('Error in getActivityEvents:', error);
+      return [];
+    }
+  }
+
+  static async getCurrentWeek(seasonId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('get_current_week', {
+        p_season_id: seasonId,
+      });
+
+      if (error) {
+        console.error('Error getting current week:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error in getCurrentWeek:', error);
+      return 0;
+    }
+  }
+
+  static async calculatePickPoints(
+    userId: string,
+    leagueId: string,
+    contestantId: string,
+    pickType: 'final3' | 'boot',
+    weekNumber?: number
+  ): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('calculate_pick_points', {
+        p_user_id: userId,
+        p_league_id: leagueId,
+        p_contestant_id: contestantId,
+        p_pick_type: pickType,
+        p_week_number: weekNumber || null,
+      });
+
+      if (error) {
+        console.error('Error calculating pick points:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error in calculatePickPoints:', error);
+      return 0;
+    }
+  }
+
+  static async calculateUserPointsForWeek(
+    userId: string,
+    leagueId: string,
+    weekNumber: number
+  ): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('calculate_user_total_points', {
+        p_user_id: userId,
+        p_league_id: leagueId,
+        p_week_number: weekNumber,
+      });
+
+      if (error) {
+        console.error('Error calculating user points for week:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Error in calculateUserPointsForWeek:', error);
+      return 0;
+    }
+  }
+
+  // Recalculate all contestant statuses for a season based on activity events
+  // Useful for data consistency or when bulk updating
+  static async recalculateContestantStatuses(seasonId: string): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('recalculate_contestant_statuses', {
+        p_season_id: seasonId,
+      });
+
+      if (error) {
+        console.error('Error recalculating contestant statuses:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in recalculateContestantStatuses:', error);
+      throw error;
+    }
+  }
+
+  // Get activity events for specific contestants in a season
+  static async getActivityEventsForContestants(
+    seasonId: string,
+    contestantIds: string[]
+  ): Promise<Array<{
+    id: string;
+    seasonId: string;
+    contestantId: string;
+    contestantName: string;
+    weekNumber: number;
+    activityType: string;
+    points: number;
+    createdAt: string;
+  }>> {
+    try {
+      if (!contestantIds || contestantIds.length === 0) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('activity_events')
+        .select(`
+          *,
+          contestants!inner(
+            id,
+            name
+          )
+        `)
+        .eq('season_id', seasonId)
+        .in('contestant_id', contestantIds)
+        .order('week_number', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching activity events for contestants:', error);
+        return [];
+      }
+
+      return (data || []).map((event: any) => ({
+        id: event.id,
+        seasonId: event.season_id,
+        contestantId: event.contestant_id,
+        contestantName: event.contestants?.name || 'Unknown',
+        weekNumber: event.week_number,
+        activityType: event.activity_type,
+        points: 0, // Will be calculated based on pick type
+        createdAt: event.created_at,
+      }));
+    } catch (error) {
+      console.error('Error in getActivityEventsForContestants:', error);
+      return [];
+    }
+  }
+
+  // Get all roster picks for a league (all users)
+  static async getAllRosterPicksForLeague(leagueId: string): Promise<Array<{
+    id: string;
+    userId: string;
+    contestantId: string;
+    pickType: 'final3' | 'boot';
+    displayName: string;
+  }>> {
+    try {
+      // First get all roster picks
+      const { data: picks, error: picksError } = await supabase
+        .from('roster_picks')
+        .select('id, user_id, contestant_id, pick_type')
+        .eq('league_id', leagueId);
+
+      if (picksError) {
+        console.error('Error fetching roster picks:', picksError);
+        return [];
+      }
+
+      if (!picks || picks.length === 0) {
+        return [];
+      }
+
+      // Get unique user IDs
+      const userIds = [...new Set(picks.map((p: any) => p.user_id))];
+
+      // Get display names for all users in the league
+      const { data: members, error: membersError } = await supabase
+        .from('league_members')
+        .select('user_id, display_name')
+        .eq('league_id', leagueId)
+        .in('user_id', userIds);
+
+      if (membersError) {
+        console.error('Error fetching league members:', membersError);
+        return [];
+      }
+
+      // Create a map of user_id to display_name
+      const displayNameMap: Record<string, string> = {};
+      (members || []).forEach((member: any) => {
+        displayNameMap[member.user_id] = member.display_name || 'Unknown';
+      });
+
+      // Combine picks with display names
+      return (picks || []).map((pick: any) => ({
+        id: pick.id,
+        userId: pick.user_id,
+        contestantId: pick.contestant_id,
+        pickType: pick.pick_type as 'final3' | 'boot',
+        displayName: displayNameMap[pick.user_id] || 'Unknown',
+      }));
+    } catch (error) {
+      console.error('Error in getAllRosterPicksForLeague:', error);
+      return [];
+    }
+  }
+
+  // Get activity events for a season with contestant info
+  static async getActivityEventsForSeason(seasonId: string): Promise<Array<{
+    id: string;
+    contestantId: string;
+    contestantName: string;
+    weekNumber: number;
+    activityType: string;
+    createdAt: string;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('activity_events')
+        .select(`
+          *,
+          contestants!inner(
+            id,
+            name
+          )
+        `)
+        .eq('season_id', seasonId)
+        .order('week_number', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching activity events for season:', error);
+        return [];
+      }
+
+      return (data || []).map((event: any) => ({
+        id: event.id,
+        contestantId: event.contestant_id,
+        contestantName: event.contestants?.name || 'Unknown',
+        weekNumber: event.week_number,
+        activityType: event.activity_type,
+        createdAt: event.created_at,
+      }));
+    } catch (error) {
+      console.error('Error in getActivityEventsForSeason:', error);
+      return [];
+    }
   }
 }
 

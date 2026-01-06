@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, Users, UserPlus, Copy, Check } from 'lucide-react';
+import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
 import useSWR from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
+import RosterActivityModal from '../modals/RosterActivityModal';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -12,19 +13,24 @@ interface League {
   id: string;
   name: string;
   season: string;
-  seasonNumber: number;
-  seasonName: string;
+  seasonNumber?: number;
+  seasonName?: string;
   memberCount: number;
   inviteCode: string;
 }
 
-export default function RosterPage() {
+interface RosterPageProps {
+  selectedLeague: League | null;
+  onLeagueChange: (league: League | null) => void;
+}
+
+export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPageProps) {
   const { user } = useAuthViewModel();
-  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [isReplacementDrawerOpen, setIsReplacementDrawerOpen] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
 
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', user?.id);
@@ -33,12 +39,23 @@ export default function RosterPage() {
     fetcher
   );
 
-  // Set selected league when leagues are loaded
+  // Set selected league when leagues are loaded (if no league is currently selected)
+  // Also validate that the selected league is still in the leagues array
   useEffect(() => {
-    if (leagues.length > 0 && !selectedLeague) {
-      setSelectedLeague(leagues[0]);
+    if (leagues.length > 0) {
+      if (!selectedLeague) {
+        // No league selected, select the first one
+        onLeagueChange(leagues[0]);
+      } else {
+        // Check if the selected league is still in the leagues array
+        const isSelectedLeagueValid = leagues.some(league => league.id === selectedLeague.id);
+        if (!isSelectedLeagueValid) {
+          // Selected league is no longer valid, select the first one
+          onLeagueChange(leagues[0]);
+        }
+      }
     }
-  }, [leagues, selectedLeague]);
+  }, [leagues, selectedLeague, onLeagueChange]);
 
   // Use roster viewmodel
   const {
@@ -48,7 +65,15 @@ export default function RosterPage() {
     error: rosterError,
     addContestantToRoster,
     refreshRoster,
+    seasonId,
   } = useRosterViewModel(selectedLeague?.id || null, user?.id || null);
+
+  // Fetch current week for the season
+  const currentWeekKey = createKey('current-week', selectedLeague?.id);
+  const { data: currentWeek = 0 } = useSWR<number>(
+    currentWeekKey,
+    fetcher
+  );
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
@@ -129,23 +154,39 @@ export default function RosterPage() {
       <div className="mb-6">
         {/* League Name - Main Heading */}
         <div className="mb-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+              <button
+                onClick={() => setIsSelectorOpen(true)}
+                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                title="Change league"
+              >
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
             <button
-              onClick={() => setIsSelectorOpen(true)}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-              title="Change league"
+              onClick={() => setIsActivityModalOpen(true)}
+              className="p-2 rounded-lg hover:bg-slate-800 transition-colors relative"
+              title="View roster activity"
             >
-              <ChevronDown className="w-5 h-5 text-slate-400" />
+              <Bell className="w-5 h-5 text-slate-400" />
             </button>
           </div>
         </div>
 
         {/* Season Info and Invite Code - Subheadings */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-slate-400">
-          <p className="text-sm">
-            Survivor {selectedLeague.seasonNumber}: {selectedLeague.seasonName}
-          </p>
+          <div className="flex flex-col">
+            <p className="text-sm">
+              Survivor {selectedLeague.seasonNumber}: {selectedLeague.seasonName}
+            </p>
+            {currentWeek > 0 && (
+              <p className="text-xs text-slate-500 mt-0.5">
+                Week {currentWeek}
+              </p>
+            )}
+          </div>
           {selectedLeague.inviteCode && (
             <>
               <span className="hidden sm:inline text-slate-600">•</span>
@@ -230,7 +271,7 @@ export default function RosterPage() {
                       {/* Points */}
                       <div className="text-right">
                         <div className={`text-2xl font-bold ${isEliminated ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
-                          0
+                          {slot.points ?? 0}
                         </div>
                         <div className="text-xs text-slate-500">points</div>
                       </div>
@@ -263,7 +304,7 @@ export default function RosterPage() {
       </div>
 
       {/* Next Boot Section */}
-      <div>
+      <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-1 h-6 rounded-full bg-red-500" />
           <h2 className="text-2xl">Next Boot Pick</h2>
@@ -311,7 +352,7 @@ export default function RosterPage() {
                 {/* Points */}
                 <div className="text-right">
                   <div className={`text-2xl font-bold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
-                    0
+                    {bootSlot.points ?? 0}
                   </div>
                   <div className="text-xs text-slate-500">points</div>
                 </div>
@@ -345,17 +386,41 @@ export default function RosterPage() {
         </div>
       </div>
 
+      {/* How Points Work Section */}
+      <div className="mt-12">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-2xl">How Points Work</h2>
+        </div>
+
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+          <div className="space-y-6">
+            <p>
+              Points are awarded weekly for the following:
+              <ul>
+                <li>Correctly Predicted Boot: +15 pts</li>
+                <li>Drafted Player is Immune: +10 pts</li>
+                <li>Drafted Player Makes Jury: +5 pts</li>
+                <li>Drafted Player Finishes in Final 3: +5 pts</li>
+                <li>Drafted Player Finishes in Predicted Order: +10 pts</li>
+              </ul>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* League Selector Drawer */}
-      <LeagueSelector
-        isOpen={isSelectorOpen}
-        onClose={() => setIsSelectorOpen(false)}
-        leagues={leagues}
-        selectedLeague={selectedLeague}
-        onSelectLeague={(league) => {
-          setSelectedLeague(league);
-          setIsSelectorOpen(false);
-        }}
-      />
+      {selectedLeague && (
+        <LeagueSelector
+          isOpen={isSelectorOpen}
+          onClose={() => setIsSelectorOpen(false)}
+          leagues={leagues}
+          selectedLeague={selectedLeague}
+          onSelectLeague={(league) => {
+            onLeagueChange(league);
+            setIsSelectorOpen(false);
+          }}
+        />
+      )}
 
       {/* Contestant Replacement Drawer */}
       <ContestantReplacementDrawer
@@ -370,6 +435,16 @@ export default function RosterPage() {
         slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
         onSelectContestant={handleSelectContestant}
         roster={roster}
+      />
+
+      {/* Roster Activity Modal */}
+      <RosterActivityModal
+        isOpen={isActivityModalOpen}
+        onClose={() => setIsActivityModalOpen(false)}
+        roster={roster}
+        seasonId={seasonId || null}
+        userId={user?.id || null}
+        leagueId={selectedLeague?.id || null}
       />
     </div>
   );

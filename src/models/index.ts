@@ -90,4 +90,6 @@ export interface ContestantScore {
 export interface RosterSlot {
   type: 'final3' | 'boot';
   contestant: Contestant | null;
+  points?: number;
+  pickId?: string;
 }

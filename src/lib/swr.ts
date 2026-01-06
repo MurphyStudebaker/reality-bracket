@@ -75,6 +75,41 @@ export const fetcher = async <T = any>(key: string): Promise<T> => {
     case 'current-user':
       return await SupabaseService.getCurrentUser() as T;
     
+    case 'current-week':
+      // First get season_id from league
+      const supabaseClient = SupabaseService.getClient();
+      const { data: leagueData, error: leagueErr } = await supabaseClient
+        .from('leagues')
+        .select('season_id')
+        .eq('id', args[0])
+        .single();
+      if (leagueErr || !leagueData || !leagueData.season_id) {
+        return 0 as T;
+      }
+      return await SupabaseService.getCurrentWeek(leagueData.season_id) as T;
+    
+    case 'roster-activity':
+      // args[0] = seasonId, args[1] = comma-separated contestantIds
+      const contestantIds = args[1] ? args[1].split(',') : [];
+      if (!args[0] || contestantIds.length === 0) {
+        return [] as T;
+      }
+      return await SupabaseService.getActivityEventsForContestants(args[0], contestantIds) as T;
+    
+    case 'league-activity-roster-picks':
+      // args[0] = leagueId
+      if (!args[0]) {
+        return [] as T;
+      }
+      return await SupabaseService.getAllRosterPicksForLeague(args[0]) as T;
+    
+    case 'league-activity-events':
+      // args[0] = seasonId
+      if (!args[0]) {
+        return [] as T;
+      }
+      return await SupabaseService.getActivityEventsForSeason(args[0]) as T;
+    
     default:
       throw new Error(`Unknown fetcher type: ${type}`);
   }

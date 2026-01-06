@@ -1,5 +1,14 @@
 import { X, Check } from 'lucide-react';
-import { League } from '../../data/mockData';
+
+interface League {
+  id: string;
+  name: string;
+  season: string;
+  seasonNumber: number;
+  seasonName: string;
+  memberCount: number;
+  inviteCode: string;
+}
 
 interface LeagueSelectorProps {
   isOpen: boolean;

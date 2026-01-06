@@ -9,7 +9,15 @@ import { useAuthViewModel } from './viewmodels/auth.viewmodel';
 import logoImage from './assets/icon.png';
 
 type ScreenType = 'home' | 'roster' | 'league';
-type League = { id: string; name: string; season: string; memberCount: number; inviteCode: string };
+type League = { 
+  id: string; 
+  name: string; 
+  season: string; 
+  seasonNumber?: number;
+  seasonName?: string;
+  memberCount: number; 
+  inviteCode: string 
+};
 
 export default function App() {
   // Initialize auth at app level to restore session on page load
@@ -134,8 +142,19 @@ export default function App() {
               onSignInClick={() => setIsProfileDrawerOpen(true)}
             />
           )}
-          {auth.isAuthenticated && currentScreen === 'roster' && <RosterPage />}
-          {auth.isAuthenticated && currentScreen === 'league' && <LeaguePage initialLeague={selectedLeague} />}
+          {auth.isAuthenticated && currentScreen === 'roster' && (
+            <RosterPage 
+              selectedLeague={selectedLeague}
+              onLeagueChange={setSelectedLeague}
+            />
+          )}
+          {auth.isAuthenticated && currentScreen === 'league' && (
+            <LeaguePage 
+              selectedLeague={selectedLeague}
+              onLeagueChange={setSelectedLeague}
+              onNavigateToRoster={() => setCurrentScreen('roster')}
+            />
+          )}
         </div>
       </main>
 
