@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
 import RosterActivityModal from '../modals/RosterActivityModal';
+import ConfirmationModal from '../modals/ConfirmationModal';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -31,6 +32,9 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
+  const [isDrafting, setIsDrafting] = useState(false);
 
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', user?.id);
@@ -75,34 +79,106 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     fetcher
   );
 
+  // Check if draft has started
+  const draftStartedKey = createKey('draft-started', selectedLeague?.id);
+  const { data: hasDraftStarted = false } = useSWR<boolean>(
+    draftStartedKey,
+    fetcher
+  );
+
+  // Fetch current draft turn
+  const draftTurnKey = createKey('draft-turn', selectedLeague?.id);
+  const { data: currentDraftTurn } = useSWR<{
+    currentPlayerId: string | null;
+    currentPlayerName: string | null;
+    position: number | null;
+    pickNumber: number | null;
+  } | null>(
+    hasDraftStarted ? draftTurnKey : null,
+    fetcher
+  );
+
+  // Helper function to check if it's user's turn for a Final 3 position
+  const isUserTurnForPosition = (position: 1 | 2 | 3): boolean => {
+    if (!hasDraftStarted || !currentDraftTurn || !user?.id) {
+      return false;
+    }
+    return currentDraftTurn.currentPlayerId === user.id && currentDraftTurn.position === position;
+  };
+
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
 
   const handleDraftClick = (index: number) => {
+    if (!hasDraftStarted) {
+      return; // Don't allow drafting if draft hasn't started
+    }
+
+    const slot = roster[index];
+    if (!slot) {
+      return;
+    }
+
+    // For Final 3 positions, check if it's user's turn
+    if (slot.type === 'final3') {
+      const position = (index + 1) as 1 | 2 | 3; // Final 3 slots are at indices 0, 1, 2
+      if (!isUserTurnForPosition(position)) {
+        return; // Don't allow if it's not their turn
+      }
+    }
+    // Boot position can always be drafted (no turn restriction)
+
     setSelectedSlotIndex(index);
     setIsReplacementDrawerOpen(true);
   };
 
-  const handleSelectContestant = async (contestant: Contestant) => {
-    if (selectedSlotIndex === null || !selectedLeague) {
+  const handleSelectContestant = (contestant: Contestant) => {
+    // Show confirmation modal instead of directly drafting
+    setPendingContestant(contestant);
+    setIsDraftConfirmOpen(true);
+    setIsReplacementDrawerOpen(false);
+  };
+
+  const handleConfirmDraft = async () => {
+    if (selectedSlotIndex === null || !selectedLeague || !pendingContestant) {
+      setIsDraftConfirmOpen(false);
+      setPendingContestant(null);
       return;
     }
 
     const slot = roster[selectedSlotIndex];
     if (!slot) {
+      setIsDraftConfirmOpen(false);
+      setPendingContestant(null);
       return;
     }
 
-    // Add contestant to roster via viewmodel (which writes to Supabase)
-    const success = await addContestantToRoster(contestant.id, slot.type, selectedSlotIndex);
-    
-    if (success) {
-      // Refresh roster to get latest data
-      await refreshRoster();
-      setIsReplacementDrawerOpen(false);
-      setSelectedSlotIndex(null);
-    } else {
-      console.error('Failed to add contestant to roster');
+    setIsDrafting(true);
+    try {
+      // Add contestant to roster via viewmodel (which writes to Supabase)
+      const success = await addContestantToRoster(pendingContestant.id, slot.type, selectedSlotIndex);
+      
+      if (success) {
+        // Refresh roster to get latest data
+        await refreshRoster();
+        
+        // Refresh draft turn if draft has started
+        if (hasDraftStarted && draftTurnKey) {
+          await mutate(draftTurnKey);
+        }
+        
+        setIsDraftConfirmOpen(false);
+        setPendingContestant(null);
+        setSelectedSlotIndex(null);
+      } else {
+        console.error('Failed to add contestant to roster');
+        alert('Failed to draft contestant. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error drafting contestant:', error);
+      alert('An error occurred while drafting. Please try again.');
+    } finally {
+      setIsDrafting(false);
     }
   };
 
@@ -208,6 +284,25 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         </div>
       </div>
 
+      {/* Draft Not Started Message */}
+      {!hasDraftStarted && (
+        <div className="mb-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-xl border-2 border-amber-600/50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-amber-300 font-semibold mb-1">Draft Has Not Started</h3>
+              <p className="text-amber-200/80 text-sm">
+                The draft has not started yet. You'll be able to draft players once the draft is opened.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Final 3 Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
@@ -290,8 +385,20 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                     </div>
                     <button
                       onClick={() => handleDraftClick(final3Slots.indexOf(slot))}
-                      className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800 flex-shrink-0"
+                      disabled={!hasDraftStarted || !isUserTurnForPosition((index + 1) as 1 | 2 | 3)}
+                      className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 ${
+                        hasDraftStarted && isUserTurnForPosition((index + 1) as 1 | 2 | 3)
+                          ? 'hover:bg-slate-800 cursor-pointer'
+                          : 'opacity-50 cursor-not-allowed'
+                      }`}
                       style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
+                      title={
+                        !hasDraftStarted 
+                          ? 'Draft has not started yet' 
+                          : !isUserTurnForPosition((index + 1) as 1 | 2 | 3)
+                          ? `It's ${currentDraftTurn?.currentPlayerName || 'another player'}'s turn to draft for Position ${index + 1}`
+                          : 'Draft Player'
+                      }
                     >
                       Draft Player
                     </button>
@@ -376,8 +483,14 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                     handleDraftClick(bootIndex);
                   }
                 }}
-                className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800 flex-shrink-0"
+                disabled={!hasDraftStarted}
+                className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 ${
+                  hasDraftStarted
+                    ? 'hover:bg-slate-800 cursor-pointer'
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
                 style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
+                title={!hasDraftStarted ? 'Draft has not started yet' : 'Draft Player'}
               >
                 Draft Player
               </button>
@@ -436,6 +549,33 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         onSelectContestant={handleSelectContestant}
         roster={roster}
       />
+
+      {/* Draft Confirmation Modal */}
+      {pendingContestant && selectedSlotIndex !== null && (
+        <ConfirmationModal
+          isOpen={isDraftConfirmOpen}
+          onClose={() => {
+            setIsDraftConfirmOpen(false);
+            setPendingContestant(null);
+            // Reopen the drawer so user can select a different contestant
+            setIsReplacementDrawerOpen(true);
+          }}
+          onConfirm={handleConfirmDraft}
+          title="Confirm Draft Selection"
+          message={
+            selectedSlotIndex < 3
+              ? `Are you sure you want to draft ${pendingContestant.name} for Position ${selectedSlotIndex + 1} (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
+              : `Are you sure you want to draft ${pendingContestant.name} as your Next Boot pick?`
+          }
+          confirmText="Confirm Draft"
+          cancelText="Cancel"
+          isLoading={isDrafting}
+          confirmButtonStyle={{
+            backgroundColor: '#BFFF0B',
+            color: '#000',
+          }}
+        />
+      )}
 
       {/* Roster Activity Modal */}
       <RosterActivityModal

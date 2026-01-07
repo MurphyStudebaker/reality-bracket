@@ -235,6 +235,7 @@ export class SupabaseService {
             invite_code,
             created_at,
             draft_date,
+            status,
             seasons!inner(
               id,
               name,
@@ -265,6 +266,7 @@ export class SupabaseService {
           inviteCode: league.invite_code,
           createdAt: league.created_at,
           draftDate: league.draft_date || undefined,
+          status: league.status as 'not_started' | 'draft_open' | 'draft_closed' | 'completed' | undefined,
         };
       });
 
@@ -296,6 +298,7 @@ export class SupabaseService {
             invite_code,
             created_at,
             draft_date,
+            status,
             seasons!inner(
               id,
               name,
@@ -362,6 +365,7 @@ export class SupabaseService {
               inviteCode: league.invite_code,
               createdAt: league.created_at,
               draftDate: league.draft_date || undefined,
+              status: league.status as 'not_started' | 'draft_open' | 'draft_closed' | 'completed' | undefined,
             },
             seasonName: season.name || `Season ${season.number}`,
             memberCount,
@@ -390,6 +394,7 @@ export class SupabaseService {
     seasonName: string;
     memberCount: number;
     inviteCode: string;
+    createdById: string;
   }>> {
     try {
       // First, get all leagues where user is a member, with league and season details
@@ -402,6 +407,7 @@ export class SupabaseService {
             name,
             invite_code,
             season_id,
+            created_by_id,
             seasons!inner(
               id,
               name,
@@ -449,6 +455,7 @@ export class SupabaseService {
             seasonName: season.name || `Season ${season.number}`,
             memberCount,
             inviteCode: league.invite_code,
+            createdById: league.created_by_id || '',
           };
         })
       );
@@ -502,6 +509,7 @@ export class SupabaseService {
           created_by_id: userId,
           invite_code: inviteCode,
           draft_date: draftDate || null,
+          status: 'not_started',
         })
         .select()
         .single();
@@ -568,6 +576,7 @@ export class SupabaseService {
         inviteCode: league.invite_code,
         createdAt: league.created_at,
         draftDate: league.draft_date || undefined,
+        status: league.status as 'not_started' | 'draft_open' | 'draft_closed' | 'completed' | undefined,
       };
     } catch (error) {
       console.error('Error in createLeague:', error);
@@ -625,6 +634,7 @@ export class SupabaseService {
         inviteCode: league.invite_code,
         createdAt: league.created_at,
         draftDate: league.draft_date || undefined,
+        status: league.status as 'not_started' | 'draft_open' | 'draft_closed' | 'completed' | undefined,
       };
     } catch (error) {
       console.error('Error in joinLeagueByInviteCode:', error);
@@ -1084,6 +1094,213 @@ export class SupabaseService {
     }
   }
 
+  // Start the draft - set status to draft_open and initialize draft order if needed
+  static async startDraft(leagueId: string): Promise<boolean> {
+    try {
+      // First, check if draft order is set for all members
+      const { data: members, error: membersError } = await supabase
+        .from('league_members')
+        .select('id, draft_order')
+        .eq('league_id', leagueId);
+
+      if (membersError || !members) {
+        console.error('Error fetching league members:', membersError);
+        return false;
+      }
+
+      // If no members have draft_order set, initialize it based on joined_at
+      const needsOrderInit = members.some(m => m.draft_order === null);
+      if (needsOrderInit && members.length > 0) {
+        // Get all members sorted by joined_at
+        const { data: orderedMembers, error: orderedError } = await supabase
+          .from('league_members')
+          .select('id')
+          .eq('league_id', leagueId)
+          .order('joined_at', { ascending: true });
+
+        if (orderedError || !orderedMembers) {
+          console.error('Error fetching ordered members:', orderedError);
+          return false;
+        }
+
+        // Set draft_order based on join order
+        const orderUpdates = orderedMembers.map((member, index) => ({
+          id: member.id,
+          draftOrder: index + 1,
+        }));
+
+        for (const update of orderUpdates) {
+          const { error: updateError } = await supabase
+            .from('league_members')
+            .update({ draft_order: update.draftOrder })
+            .eq('id', update.id)
+            .eq('league_id', leagueId);
+
+          if (updateError) {
+            console.error('Error updating draft order:', updateError);
+            return false;
+          }
+        }
+      }
+
+      // Update league status to draft_open
+      const { data: updatedLeague, error: statusError } = await supabase
+        .from('leagues')
+        .update({ status: 'draft_open' })
+        .eq('id', leagueId)
+        .select('id, status')
+        .single();
+
+      if (statusError) {
+        console.error('Error updating league status:', statusError);
+        return false;
+      }
+
+      if (!updatedLeague || updatedLeague.status !== 'draft_open') {
+        console.error('League status was not updated correctly');
+        return false;
+      }
+
+      console.log('Draft started successfully for league:', leagueId);
+      return true;
+    } catch (error) {
+      console.error('Error in startDraft:', error);
+      return false;
+    }
+  }
+
+  // Get current draft turn information
+  static async getCurrentDraftTurn(leagueId: string): Promise<{
+    currentPlayerId: string | null;
+    currentPlayerName: string | null;
+    position: number | null; // 1, 2, or 3 for Final 3 positions
+    pickNumber: number | null; // Which pick in the position (1-based)
+  } | null> {
+    try {
+      // Get all league members with draft order
+      const { data: members, error: membersError } = await supabase
+        .from('league_members')
+        .select('id, user_id, draft_order, display_name')
+        .eq('league_id', leagueId)
+        .not('draft_order', 'is', null)
+        .order('draft_order', { ascending: true });
+
+      if (membersError || !members || members.length === 0) {
+        return null;
+      }
+
+      // Get all roster picks for Final 3 positions
+      const { data: picks, error: picksError } = await supabase
+        .from('roster_picks')
+        .select('user_id, pick_type')
+        .eq('league_id', leagueId)
+        .eq('pick_type', 'final3')
+        .order('picked_at', { ascending: true });
+
+      if (picksError) {
+        console.error('Error fetching roster picks:', picksError);
+        return null;
+      }
+
+      // Count picks per position
+      const picksByUser = new Map<string, number>();
+      picks?.forEach(pick => {
+        const count = picksByUser.get(pick.user_id) || 0;
+        picksByUser.set(pick.user_id, count + 1);
+      });
+
+      // Determine which position we're on and whose turn it is
+      // Snake draft: Position 1 forward, Position 2 reversed, Position 3 forward
+      const totalPicks = picks?.length || 0;
+      const numPlayers = members.length;
+      const picksPerPosition = numPlayers;
+
+      // Check if all positions are filled for all players
+      const picksByPosition = new Map<number, Set<string>>();
+      picks?.forEach(pick => {
+        // Count how many picks each user has made
+        const userPicks = picks.filter(p => p.user_id === pick.user_id).length;
+        const position = userPicks; // 1, 2, or 3
+        
+        if (!picksByPosition.has(position)) {
+          picksByPosition.set(position, new Set());
+        }
+        picksByPosition.get(position)!.add(pick.user_id);
+      });
+
+      // Check if all players have picked for each position
+      let currentPosition: number = 1;
+      if (picksByPosition.get(1)?.size === numPlayers) {
+        currentPosition = 2;
+        if (picksByPosition.get(2)?.size === numPlayers) {
+          currentPosition = 3;
+          if (picksByPosition.get(3)?.size === numPlayers) {
+            // Draft completed
+            return null;
+          }
+        }
+      }
+
+      // Calculate which pick in the current position
+      const picksInCurrentPosition = picksByPosition.get(currentPosition)?.size || 0;
+      const currentPickInPosition = picksInCurrentPosition + 1;
+
+      // Determine player index based on position and pick number
+      let currentPlayerIndex: number;
+      if (currentPosition === 1 || currentPosition === 3) {
+        // Forward order: 0, 1, 2, 3, ...
+        currentPlayerIndex = (currentPickInPosition - 1) % numPlayers;
+      } else {
+        // Reverse order: last person picks first, then backwards
+        currentPlayerIndex = numPlayers - 1 - ((currentPickInPosition - 1) % numPlayers);
+      }
+
+      const currentMember = members[currentPlayerIndex];
+      if (!currentMember) {
+        return null;
+      }
+
+      // Get username
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', currentMember.user_id)
+        .single();
+
+      const displayName = currentMember.display_name || user?.username || `Player ${currentMember.user_id.substring(0, 8)}`;
+
+      return {
+        currentPlayerId: currentMember.user_id,
+        currentPlayerName: displayName,
+        position: currentPosition,
+        pickNumber: currentPickInPosition,
+      };
+    } catch (error) {
+      console.error('Error in getCurrentDraftTurn:', error);
+      return null;
+    }
+  }
+
+  // Check if it's a user's turn for a specific Final 3 position
+  static async isUserTurnForPosition(
+    leagueId: string,
+    userId: string,
+    position: 1 | 2 | 3
+  ): Promise<boolean> {
+    try {
+      const draftTurn = await this.getCurrentDraftTurn(leagueId);
+      
+      if (!draftTurn || !draftTurn.currentPlayerId) {
+        return false;
+      }
+
+      return draftTurn.currentPlayerId === userId && draftTurn.position === position;
+    } catch (error) {
+      console.error('Error in isUserTurnForPosition:', error);
+      return false;
+    }
+  }
+
   // Update draft order for league members
   static async updateDraftOrder(
     leagueId: string,
@@ -1528,6 +1745,32 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error in getAllRosterPicksForLeague:', error);
       return [];
+    }
+  }
+
+  // Check if draft has started for a league (returns true if status is draft_open or later)
+  static async hasDraftStarted(leagueId: string): Promise<boolean> {
+    try {
+      const { data: league, error } = await supabase
+        .from('leagues')
+        .select('status')
+        .eq('id', leagueId)
+        .single();
+
+      if (error) {
+        console.error('Error checking draft status:', error);
+        return false;
+      }
+
+      if (!league) {
+        return false;
+      }
+
+      // Draft has started if status is draft_open, draft_closed, or completed
+      return league.status === 'draft_open' || league.status === 'draft_closed' || league.status === 'completed';
+    } catch (error) {
+      console.error('Error in hasDraftStarted:', error);
+      return false;
     }
   }
 

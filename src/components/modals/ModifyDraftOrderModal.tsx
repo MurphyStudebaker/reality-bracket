@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, GripVertical, Save } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
@@ -29,6 +29,7 @@ export default function ModifyDraftOrderModal({
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const prevFetchedMembersRef = useRef<string>('');
 
   // Fetch league members for draft order
   const membersKey = createKey('draft-order-members', leagueId);
@@ -42,6 +43,28 @@ export default function ModifyDraftOrderModal({
 
   // Initialize members when fetched
   useEffect(() => {
+    if (!isOpen || !leagueId) {
+      if (members.length > 0) {
+        setMembers([]);
+      }
+      prevFetchedMembersRef.current = '';
+      return;
+    }
+
+    if (isLoading) {
+      return; // Don't update while loading
+    }
+
+    // Create a stable string representation of fetched members to detect changes
+    const fetchedMembersKey = fetchedMembers.map(m => `${m.id}:${m.draftOrder}`).sort().join('|');
+    
+    // Only update if the fetched data actually changed
+    if (prevFetchedMembersRef.current === fetchedMembersKey) {
+      return;
+    }
+
+    prevFetchedMembersRef.current = fetchedMembersKey;
+
     if (fetchedMembers.length > 0) {
       // Sort by draft_order (nulls last), then by joined_at
       const sorted = [...fetchedMembers].sort((a, b) => {
@@ -52,11 +75,12 @@ export default function ModifyDraftOrderModal({
         if (b.draftOrder !== null) return 1;
         return new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
       });
+      
       setMembers(sorted);
-    } else if (fetchedMembers.length === 0 && !isLoading) {
+    } else {
       setMembers([]);
     }
-  }, [fetchedMembers, isLoading]);
+  }, [fetchedMembers, isLoading, isOpen, leagueId]);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);

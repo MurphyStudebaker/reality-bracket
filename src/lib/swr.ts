@@ -110,6 +110,20 @@ export const fetcher = async <T = any>(key: string): Promise<T> => {
       }
       return await SupabaseService.getActivityEventsForSeason(args[0]) as T;
     
+    case 'draft-started':
+      // args[0] = leagueId
+      if (!args[0]) {
+        return false as T;
+      }
+      return await SupabaseService.hasDraftStarted(args[0]) as T;
+    
+    case 'draft-turn':
+      // args[0] = leagueId
+      if (!args[0]) {
+        return null as T;
+      }
+      return await SupabaseService.getCurrentDraftTurn(args[0]) as T;
+    
     default:
       throw new Error(`Unknown fetcher type: ${type}`);
   }
