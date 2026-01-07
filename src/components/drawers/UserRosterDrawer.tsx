@@ -1,5 +1,5 @@
 import { X, UserPlus } from 'lucide-react';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { SupabaseService } from '../../services/supabaseService';
@@ -29,12 +29,26 @@ export default function UserRosterDrawer({
 
   // Fetch points for each pick
   const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
+  const prevPicksRef = useRef<string>('');
   
   useEffect(() => {
-    if (!userId || !leagueId || !picks || picks.length === 0) {
-      setPickPointsMap({});
+    if (!isOpen || !userId || !leagueId || !picks || picks.length === 0) {
+      if (Object.keys(pickPointsMap).length > 0) {
+        setPickPointsMap({});
+      }
+      prevPicksRef.current = '';
       return;
     }
+
+    // Create a stable string representation of picks to detect changes
+    const picksKey = picks.map(p => `${p.id}:${p.contestant?.id || ''}`).sort().join('|');
+    
+    // Only fetch if picks actually changed
+    if (prevPicksRef.current === picksKey) {
+      return;
+    }
+
+    prevPicksRef.current = picksKey;
 
     const fetchPickPoints = async () => {
       const pointsMap: Record<string, number> = {};
@@ -57,7 +71,7 @@ export default function UserRosterDrawer({
     };
 
     fetchPickPoints();
-  }, [userId, leagueId, picks]);
+  }, [userId, leagueId, picks, isOpen]); // Added isOpen to dependencies
 
   // Transform picks into roster slots (same logic as RosterPage)
   const roster = useMemo<RosterSlot[]>(() => {

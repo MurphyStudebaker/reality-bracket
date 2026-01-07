@@ -20,6 +20,7 @@ export interface League {
   inviteCode: string;
   createdAt: string;
   draftDate?: string;
+  status?: 'not_started' | 'draft_open' | 'draft_closed' | 'completed';
 }
 
 export interface LeagueMember {
