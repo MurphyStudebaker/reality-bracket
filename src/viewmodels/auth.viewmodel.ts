@@ -10,6 +10,7 @@ export const useAuthViewModel = () => {
   const [error, setError] = useState<string | null>(null);
   const [isPasswordResetRequested, setIsPasswordResetRequested] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [isMagicLinkRequested, setIsMagicLinkRequested] = useState(false);
 
   // Check if user is authenticated
   const checkAuth = async () => {
@@ -95,7 +96,10 @@ export const useAuthViewModel = () => {
     try {
       setError(null);
       setIsLoading(true);
+      console.log('Requesting password reset for:', email);
+      console.log('Redirect URL will be:', `${window.location.origin}/reset-password`);
       await SupabaseService.resetPasswordForEmail(email);
+      console.log('Password reset email sent successfully');
       setIsPasswordResetRequested(true);
       return true;
     } catch (err: any) {
@@ -121,6 +125,23 @@ export const useAuthViewModel = () => {
     } catch (err: any) {
       console.error('Error updating password:', err);
       setError(err?.message || 'Failed to update password. Please try again.');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Sign in with magic link
+  const signInWithMagicLink = async (email: string): Promise<boolean> => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      await SupabaseService.signInWithMagicLink(email);
+      setIsMagicLinkRequested(true);
+      return true;
+    } catch (err: any) {
+      console.error('Error sending magic link:', err);
+      setError(err?.message || 'Failed to send magic link. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
@@ -255,6 +276,7 @@ export const useAuthViewModel = () => {
             setUser(null);
             setIsPasswordRecovery(false);
             setIsPasswordResetRequested(false);
+            setIsMagicLinkRequested(false);
             setIsLoading(false);
           }
         } else if (event === 'PASSWORD_RECOVERY') {
@@ -296,14 +318,17 @@ export const useAuthViewModel = () => {
     error,
     isPasswordResetRequested,
     isPasswordRecovery,
+    isMagicLinkRequested,
     signUp,
     signIn,
     signOut,
+    signInWithMagicLink,
     signInWithOAuth,
     requestPasswordReset,
     updatePassword,
     refreshAuth: checkAuth,
     clearPasswordResetRequested: () => setIsPasswordResetRequested(false),
+    clearMagicLinkRequested: () => setIsMagicLinkRequested(false),
     clearError,
   };
 };

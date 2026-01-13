@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, Users, TrendingUp, TrendingDown, Minus, Crown, Award, Medal, Copy, Check, Play, Lock, Bell, ArrowUpDown } from 'lucide-react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
@@ -17,6 +17,15 @@ interface League {
   seasonName: string;
   memberCount: number;
   inviteCode: string;
+}
+
+interface DraftOrderMember {
+  id: string;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  draftOrder: number | null;
+  joinedAt: string;
 }
 
 interface LeaguePageProps {
@@ -91,26 +100,42 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     fetcher
   );
 
-  // Check if draft is completed by checking if all league members have 3 Final 3 picks
+  // Check draft status: not_started, in_progress, or completed
   const draftStatusKey = createKey('draft-status', selectedLeague?.id);
-  const { data: isDraftCompleted = false } = useSWR<boolean>(
+  const { data: draftStatus = 'not_started' } = useSWR<'not_started' | 'in_progress' | 'completed'>(
     selectedLeague?.id ? draftStatusKey : null,
     async () => {
-      if (!selectedLeague?.id) return false;
-      
+      if (!selectedLeague?.id) return 'not_started';
+
       try {
         const supabase = SupabaseService.getClient();
-        
+
+        // Check if draft has been started (draft_date is set)
+        const { data: league, error: leagueError } = await supabase
+          .from('leagues')
+          .select('draft_date')
+          .eq('id', selectedLeague.id)
+          .single();
+
+        if (leagueError || !league) {
+          return 'not_started';
+        }
+
+        // If draft_date is null, draft hasn't started
+        if (!league.draft_date) {
+          return 'not_started';
+        }
+
         // Get all league members
         const { data: members, error: membersError } = await supabase
           .from('league_members')
           .select('user_id')
           .eq('league_id', selectedLeague.id);
-        
+
         if (membersError || !members || members.length === 0) {
-          return false;
+          return 'in_progress'; // Draft started but can't check completion
         }
-        
+
         // Check if all members have 3 Final 3 picks
         const memberChecks = await Promise.all(
           members.map(async (member) => {
@@ -120,23 +145,113 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               .eq('league_id', selectedLeague.id)
               .eq('user_id', member.user_id)
               .eq('pick_type', 'final3');
-            
+
             if (picksError || !picks) {
               return false;
             }
-            
+
             return picks.length >= 3;
           })
         );
-        
+
         // Draft is completed if all members have at least 3 Final 3 picks
-        return memberChecks.every(completed => completed === true);
+        return memberChecks.every(completed => completed === true) ? 'completed' : 'in_progress';
       } catch (error) {
         console.error('Error checking draft status:', error);
-        return false;
+        return 'not_started';
       }
     }
   );
+
+  // Get league members in draft order for turn calculation
+  const draftOrderKey = createKey('draft-order-members', selectedLeague?.id);
+  const { data: draftOrderMembers = [] } = useSWR<DraftOrderMember[]>(
+    selectedLeague?.id ? draftOrderKey : null,
+    async () => {
+      if (!selectedLeague?.id) return [];
+      return await SupabaseService.getLeagueMembersForDraftOrder(selectedLeague.id);
+    }
+  );
+
+  // Get league-wide draft state (count of picks per member)
+  const leagueDraftStateKey = createKey('league-draft-state', selectedLeague?.id);
+  const { data: leagueDraftState = [] } = useSWR(
+    selectedLeague?.id && draftStatus === 'in_progress' ? leagueDraftStateKey : null,
+    async () => {
+      if (!selectedLeague?.id) return [];
+
+      try {
+        const supabase = SupabaseService.getClient();
+
+        // Get all final3 picks for the league
+        const { data: picks, error } = await supabase
+          .from('roster_picks')
+          .select('user_id, pick_type')
+          .eq('league_id', selectedLeague.id)
+          .eq('pick_type', 'final3');
+
+        if (error) {
+          console.error('Error fetching league draft state:', error);
+          return [];
+        }
+
+        // Count picks per user
+        const pickCounts: Record<string, number> = {};
+        picks?.forEach(pick => {
+          pickCounts[pick.user_id] = (pickCounts[pick.user_id] || 0) + 1;
+        });
+
+        return pickCounts;
+      } catch (error) {
+        console.error('Error in league draft state:', error);
+        return [];
+      }
+    }
+  );
+
+  // Calculate current draft turn using actual pick counts
+  const currentDraftTurn = useMemo(() => {
+    if (draftStatus !== 'in_progress' || draftOrderMembers.length === 0 || !leagueDraftState) {
+      return null;
+    }
+
+    try {
+      // Count total picks made across all members
+      const totalPicksMade = Object.values(leagueDraftState).reduce((sum, count) => sum + count, 0);
+      const totalPositions = draftOrderMembers.length * 3; // 3 positions per member
+
+      if (totalPicksMade >= totalPositions) {
+        return null; // Draft completed
+      }
+
+      // Calculate current round and position
+      const currentRound = Math.floor(totalPicksMade / draftOrderMembers.length) + 1; // 1-based
+      const positionInRound = totalPicksMade % draftOrderMembers.length;
+
+      // In snake draft: odd rounds go forward (0,1,2,...), even rounds go backward (N-1,N-2,...,0)
+      const isReverseRound = currentRound % 2 === 0;
+      const memberIndex = isReverseRound
+        ? draftOrderMembers.length - 1 - positionInRound
+        : positionInRound;
+
+      const currentMember = draftOrderMembers[memberIndex];
+      if (!currentMember) return null;
+
+      const positionNames = ['Sole Survivor', 'Runner Up', 'Third Place'];
+
+      return {
+        member: currentMember,
+        round: currentRound,
+        position: positionInRound + 1,
+        positionName: positionNames[currentRound - 1] || `Position ${currentRound}`,
+        totalPicksMade,
+        totalPositions
+      };
+    } catch (error) {
+      console.error('Error calculating draft turn:', error);
+      return null;
+    }
+  }, [draftStatus, draftOrderMembers, leagueDraftState]);
 
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);
@@ -527,35 +642,72 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
 
         <div className="h-4"></div>
 
+        {/* Current Draft Turn */}
+        {draftStatus === 'in_progress' && currentDraftTurn && (
+          <div className="my-6 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-xl border-2 border-blue-700/50 p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">{currentDraftTurn.round}</span>
+              </div>
+              <h3 className="text-xl font-semibold text-white">Round {currentDraftTurn.round} - {currentDraftTurn.positionName}</h3>
+            </div>
+            <p className="text-blue-200">
+              It's <span className="font-semibold text-white">{currentDraftTurn.member.displayName || currentDraftTurn.member.username}</span>'s turn to pick the {currentDraftTurn.positionName}.
+              <br />
+              <span className="text-sm text-blue-300">
+                ({currentDraftTurn.totalPicksMade} of {currentDraftTurn.totalPositions} picks completed)
+              </span>
+            </p>
+          </div>
+        )}
+        <div className="h-4"></div>
+
         {/* Begin Draft Button */}
         <div className="mt-6 flex flex-col gap-3">
           <button
-            onClick={() => {
-              if (!isDraftCompleted) {
-                // TODO: Implement draft start logic
-                console.log('Begin draft clicked');
+            onClick={async () => {
+              if (draftStatus === 'not_started' && selectedLeague?.id) {
+                try {
+                  const success = await SupabaseService.startDraft(selectedLeague.id);
+                  if (success) {
+                    // Invalidate draft status to refresh the UI
+                    await mutate(draftStatusKey);
+                    // Also invalidate league data to show updated draft_date
+                    await mutate(createKey('league', selectedLeague.id));
+                  } else {
+                    alert('Failed to start draft. Please try again.');
+                  }
+                } catch (error) {
+                  console.error('Error starting draft:', error);
+                  alert('An error occurred while starting the draft. Please try again.');
+                }
               }
             }}
-            disabled={isDraftCompleted}
+            disabled={draftStatus !== 'not_started'}
             className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-              isDraftCompleted
+              draftStatus !== 'not_started'
                 ? 'cursor-not-allowed opacity-60'
                 : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
             }`}
             style={
-              isDraftCompleted
+              draftStatus !== 'not_started'
                 ? { backgroundColor: '#475569', color: '#94a3b8' }
-                : { 
+                : {
                   borderColor: '#BFFF0B',
                   backgroundColor: 'rgba(191, 255, 11, 0.1)',
                   color: '#BFFF0B'
                 }
             }
           >
-            {isDraftCompleted ? (
+            {draftStatus === 'completed' ? (
               <>
                 <Lock className="w-5 h-5" />
                 <span>Draft Completed</span>
+              </>
+            ) : draftStatus === 'in_progress' ? (
+              <>
+                <Play className="w-5 h-5" />
+                <span>Draft In Progress</span>
               </>
             ) : (
               <>
@@ -568,18 +720,18 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           {/* Modify Draft Order Button */}
           <button
             onClick={() => {
-              if (!isDraftCompleted) {
+              if (draftStatus === 'not_started') {
                 setIsDraftOrderModalOpen(true);
               }
             }}
-            disabled={isDraftCompleted}
+            disabled={draftStatus !== 'not_started'}
             className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-              isDraftCompleted
+              draftStatus !== 'not_started'
                 ? 'cursor-not-allowed opacity-60'
                 : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
             }`}
             style={
-              isDraftCompleted
+              draftStatus !== 'not_started'
                 ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
                 : {
                   borderColor: '#64748b',
@@ -619,7 +771,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       {/* Modify Draft Order Modal */}
       <ModifyDraftOrderModal
         isOpen={isDraftOrderModalOpen}
-        onClose={() => setIsDraftOrderModalOpen(false)}
+        onClose={() => {
+          setIsDraftOrderModalOpen(false);
+          // Invalidate caches after modal closes
+          if (selectedLeague?.id) {
+            mutate(createKey('draft-order-members', selectedLeague.id));
+            mutate(createKey('league-draft-state', selectedLeague.id));
+          }
+        }}
         leagueId={selectedLeague?.id || null}
       />
 

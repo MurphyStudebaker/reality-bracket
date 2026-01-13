@@ -17,8 +17,8 @@ import type { League as UILeague } from '../models/types';
 import { generateSurvivorUsername } from '../models/constants';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'dummy-anon-key';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase URL and/or key not found in environment variables. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
@@ -164,13 +164,21 @@ export class SupabaseService {
 
   static async resetPasswordForEmail(email: string, redirectTo?: string): Promise<void> {
     try {
-      // Use the current origin - Supabase will automatically append the access_token
+      // Use the password reset route - Supabase will automatically append the access_token
       // and type=recovery to the hash fragment when redirecting
-      // The redirectTo should be the base URL without hash fragments
-      const resetUrl = redirectTo || `${window.location.origin}${window.location.pathname}`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const resetUrl = redirectTo || `${window.location.origin}/reset-password`;
+      console.log('Sending password reset email:', {
+        email,
+        redirectTo: resetUrl,
+        origin: window.location.origin
+      });
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetUrl,
       });
+
+      console.log('Password reset response:', { data, error });
+
       if (error) {
         console.error('Error resetting password:', error);
         throw error;
@@ -192,6 +200,25 @@ export class SupabaseService {
       }
     } catch (error) {
       console.error('Error in updatePassword:', error);
+      throw error;
+    }
+  }
+
+  // Magic link sign-in method
+  static async signInWithMagicLink(email: string, redirectTo?: string): Promise<void> {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        console.error('Error sending magic link:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in signInWithMagicLink:', error);
       throw error;
     }
   }
@@ -1046,34 +1073,15 @@ export class SupabaseService {
         return [];
       }
 
-      // Get user IDs and fetch usernames
-      const userIds = memberData.map((m: any) => m.user_id);
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, username')
-        .in('id', userIds);
-
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-      }
-
-      // Create a map of user_id to username
-      const usersMap = new Map<string, string>();
-      if (usersData) {
-        usersData.forEach((user: any) => {
-          usersMap.set(user.id, user.username);
-        });
-      }
-
-      // Transform the data
+      // Transform the data (skip usernames due to RLS restrictions)
       return memberData.map((member: any) => {
-        const username = usersMap.get(member.user_id) || 'Unknown';
-        const displayName = member.display_name || username || `Player ${member.user_id.substring(0, 8)}`;
+        const username = `Player ${member.user_id.substring(0, 8)}`;
+        const displayName = member.display_name || username;
         return {
           id: member.id,
           userId: member.user_id,
           username: username,
-          displayName: member.display_name,
+          displayName: displayName,
           draftOrder: member.draft_order,
           joinedAt: member.joined_at,
         };
@@ -1115,6 +1123,26 @@ export class SupabaseService {
     }
   }
 
+  // Start draft for a league by setting draft_date to current date
+  static async startDraft(leagueId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('leagues')
+        .update({ draft_date: new Date().toISOString().split('T')[0] }) // YYYY-MM-DD format
+        .eq('id', leagueId);
+
+      if (error) {
+        console.error('Error starting draft:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in startDraft:', error);
+      return false;
+    }
+  }
+
   // Fallback method: Query league_members and users separately
   static async getLeagueStandingsFallback(leagueId: string): Promise<LeagueStanding[]> {
     try {
@@ -1130,32 +1158,10 @@ export class SupabaseService {
         return [];
       }
 
-      // Get user IDs
-      const userIds = memberData.map((m: any) => m.user_id);
-
-      // Fetch users separately
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, username')
-        .in('id', userIds);
-
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-      }
-
-      // Create a map of user data
-      const usersMap = new Map();
-      if (usersData) {
-        usersData.forEach((user: any) => {
-          usersMap.set(user.id, user);
-        });
-      }
-
-      // Transform to LeagueStanding format
+      // Transform to LeagueStanding format (skip username fetching due to RLS)
       const standings: LeagueStanding[] = memberData.map((member: any, index: number) => {
-        const user = usersMap.get(member.user_id);
-        // Use display_name from league_members if available, otherwise fall back to username
-        const displayName = member.display_name || user?.username || 'Unknown';
+        // Use display_name from league_members if available, otherwise use a placeholder
+        const displayName = member.display_name || `Player ${member.user_id.substring(0, 8)}`;
         return {
           rank: index + 1,
           userId: member.user_id,

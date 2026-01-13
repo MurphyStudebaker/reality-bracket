@@ -29,7 +29,10 @@ export default function UserRosterDrawer({
 
   // Fetch points for each pick
   const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
-  
+
+  // Use a stable representation of picks for dependency checking
+  const picksKey = picks?.map(p => `${p.id}:${p.contestant?.id || 'null'}`).sort().join(',') || '';
+
   useEffect(() => {
     if (!userId || !leagueId || !picks || picks.length === 0) {
       setPickPointsMap({});
@@ -38,7 +41,7 @@ export default function UserRosterDrawer({
 
     const fetchPickPoints = async () => {
       const pointsMap: Record<string, number> = {};
-      
+
       await Promise.all(
         picks.map(async (pick) => {
           if (pick.contestant) {
@@ -57,7 +60,7 @@ export default function UserRosterDrawer({
     };
 
     fetchPickPoints();
-  }, [userId, leagueId, picks]);
+  }, [userId, leagueId, picksKey]);
 
   // Transform picks into roster slots (same logic as RosterPage)
   const roster = useMemo<RosterSlot[]>(() => {

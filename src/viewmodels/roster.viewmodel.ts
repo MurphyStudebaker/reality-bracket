@@ -38,7 +38,10 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
 
   // Fetch points for each pick
   const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
-  
+
+  // Use a stable representation of picks for dependency checking
+  const picksKey = picks?.map(p => `${p.id}:${p.contestant?.id || 'null'}`).sort().join(',') || '';
+
   useEffect(() => {
     if (!userId || !leagueId || !picks || picks.length === 0) {
       setPickPointsMap({});
@@ -47,7 +50,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
 
     const fetchPickPoints = async () => {
       const pointsMap: Record<string, number> = {};
-      
+
       // Calculate points for each pick
       await Promise.all(
         picks.map(async (pick) => {
@@ -67,7 +70,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     };
 
     fetchPickPoints();
-  }, [userId, leagueId, picks]);
+  }, [userId, leagueId, picksKey]);
 
   // Transform picks into roster slots
   const roster = useMemo<RosterSlot[]>(() => {
@@ -132,8 +135,24 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     }
 
     try {
+      // For boot picks, remove existing boot pick first (only one boot slot allowed)
+      if (pickType === 'boot') {
+        const existingBootPick = picks?.find(p => p.pickType === 'boot');
+        if (existingBootPick) {
+          await SupabaseService.removeRosterPick(existingBootPick.id);
+        }
+      }
+
+      // For final3 picks during draft, if slotIndex is provided and that slot already has a pick, remove it
+      if (pickType === 'final3' && slotIndex !== undefined) {
+        const slot = roster[slotIndex];
+        if (slot?.pickId) {
+          await SupabaseService.removeRosterPick(slot.pickId);
+        }
+      }
+
       const pick = await SupabaseService.addRosterPick(userId, leagueId, contestantId, pickType);
-      
+
       if (pick) {
         // Invalidate and revalidate cache
         await refreshRoster();

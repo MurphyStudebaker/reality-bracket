@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, GripVertical, Save } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
@@ -29,6 +29,7 @@ export default function ModifyDraftOrderModal({
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const hasInitialized = useRef(false);
 
   // Fetch league members for draft order
   const membersKey = createKey('draft-order-members', leagueId);
@@ -40,10 +41,9 @@ export default function ModifyDraftOrderModal({
     }
   );
 
-  // Initialize members when fetched
+  // Initialize members when data is loaded and modal is open
   useEffect(() => {
-    if (fetchedMembers.length > 0) {
-      // Sort by draft_order (nulls last), then by joined_at
+    if (isOpen && fetchedMembers.length > 0 && !hasInitialized.current) {
       const sorted = [...fetchedMembers].sort((a, b) => {
         if (a.draftOrder !== null && b.draftOrder !== null) {
           return a.draftOrder - b.draftOrder;
@@ -53,10 +53,17 @@ export default function ModifyDraftOrderModal({
         return new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
       });
       setMembers(sorted);
-    } else if (fetchedMembers.length === 0 && !isLoading) {
+      hasInitialized.current = true;
+    }
+  }, [isOpen, fetchedMembers]);
+
+  // Reset when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasInitialized.current = false;
       setMembers([]);
     }
-  }, [fetchedMembers, isLoading]);
+  }, [isOpen]);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -92,10 +99,7 @@ export default function ModifyDraftOrderModal({
       const success = await SupabaseService.updateDraftOrder(leagueId, memberOrders);
 
       if (success) {
-        // Invalidate and refetch
-        await mutateMembers();
-        // Also invalidate any related caches
-        await mutate(createKey('draft-order-members', leagueId));
+        // Close modal - parent component should handle cache invalidation
         onClose();
       } else {
         alert('Failed to save draft order. Please try again.');

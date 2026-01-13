@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
 import RosterActivityModal from '../modals/RosterActivityModal';
+import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -13,8 +14,8 @@ interface League {
   id: string;
   name: string;
   season: string;
-  seasonNumber?: number;
-  seasonName?: string;
+  seasonNumber: number;
+  seasonName: string;
   memberCount: number;
   inviteCode: string;
 }
@@ -37,6 +38,115 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const { data: leagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
     leaguesKey,
     fetcher
+  );
+
+  // Check draft status: not_started, in_progress, or completed
+  const draftStatusKey = createKey('draft-status', selectedLeague?.id);
+  const { data: draftStatus = 'not_started' } = useSWR<'not_started' | 'in_progress' | 'completed'>(
+    selectedLeague?.id ? draftStatusKey : null,
+    async () => {
+      if (!selectedLeague?.id) return 'not_started';
+
+      try {
+        const supabase = SupabaseService.getClient();
+
+        // Check if draft has been started (draft_date is set)
+        const { data: league, error: leagueError } = await supabase
+          .from('leagues')
+          .select('draft_date')
+          .eq('id', selectedLeague.id)
+          .single();
+
+        if (leagueError || !league) {
+          return 'not_started';
+        }
+
+        // If draft_date is null, draft hasn't started
+        if (!league.draft_date) {
+          return 'not_started';
+        }
+
+        // Get all league members
+        const { data: members, error: membersError } = await supabase
+          .from('league_members')
+          .select('user_id')
+          .eq('league_id', selectedLeague.id);
+
+        if (membersError || !members || members.length === 0) {
+          return 'in_progress'; // Draft started but can't check completion
+        }
+
+        // Check if all members have 3 Final 3 picks
+        const memberChecks = await Promise.all(
+          members.map(async (member) => {
+            const { data: picks, error: picksError } = await supabase
+              .from('roster_picks')
+              .select('id')
+              .eq('league_id', selectedLeague.id)
+              .eq('user_id', member.user_id)
+              .eq('pick_type', 'final3');
+
+            if (picksError || !picks) {
+              return false;
+            }
+
+            return picks.length >= 3;
+          })
+        );
+
+        // Draft is completed if all members have at least 3 Final 3 picks
+        return memberChecks.every(completed => completed === true) ? 'completed' : 'in_progress';
+      } catch (error) {
+        console.error('Error checking draft status:', error);
+        return 'not_started';
+      }
+    }
+  );
+
+  // Get league members in draft order for turn calculation
+  const draftOrderKey = createKey('draft-order-members', selectedLeague?.id);
+  const { data: draftOrderMembers = [] } = useSWR(
+    selectedLeague?.id ? draftOrderKey : null,
+    async () => {
+      if (!selectedLeague?.id) return [];
+      return await SupabaseService.getLeagueMembersForDraftOrder(selectedLeague.id);
+    }
+  );
+
+  // Get league-wide draft state (count of picks per member)
+  const leagueDraftStateKey = createKey('league-draft-state', selectedLeague?.id);
+  const { data: leagueDraftState = {} } = useSWR(
+    selectedLeague?.id && draftStatus === 'in_progress' ? leagueDraftStateKey : null,
+    async () => {
+      if (!selectedLeague?.id) return {};
+
+      try {
+        const supabase = SupabaseService.getClient();
+
+        // Get all final3 picks for the league
+        const { data: picks, error } = await supabase
+          .from('roster_picks')
+          .select('user_id, pick_type')
+          .eq('league_id', selectedLeague.id)
+          .eq('pick_type', 'final3');
+
+        if (error) {
+          console.error('Error fetching league draft state:', error);
+          return {};
+        }
+
+        // Count picks per user
+        const pickCounts: Record<string, number> = {};
+        picks?.forEach(pick => {
+          pickCounts[pick.user_id] = (pickCounts[pick.user_id] || 0) + 1;
+        });
+
+        return pickCounts;
+      } catch (error) {
+        console.error('Error in league draft state:', error);
+        return {};
+      }
+    }
   );
 
   // Set selected league when leagues are loaded (if no league is currently selected)
@@ -67,6 +177,71 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     refreshRoster,
     seasonId,
   } = useRosterViewModel(selectedLeague?.id || null, user?.id || null);
+
+  // Calculate current draft turn information for snake draft
+  const currentDraftTurn = useMemo(() => {
+    if (draftStatus !== 'in_progress' || draftOrderMembers.length === 0 || !user?.id) {
+      return null;
+    }
+
+    try {
+      const numPlayers = draftOrderMembers.length;
+      const totalPositions = numPlayers * 3; // 3 positions per player
+
+      // Count total final3 picks made by all players
+      const totalPicksMade = Object.values(leagueDraftState).reduce((sum, count) => sum + count, 0);
+
+      if (totalPicksMade >= totalPositions) {
+        return {
+          canDraftFinal3: false,
+          canDraftBoot: true,
+          currentSlotIndex: null,
+          nextPlayer: null,
+          message: "Draft completed"
+        };
+      }
+
+      // Calculate current round and position
+      const currentRound = Math.floor(totalPicksMade / numPlayers) + 1; // 1-based
+      const positionInRound = totalPicksMade % numPlayers;
+
+      // In snake draft: odd rounds go forward (0,1,2,...), even rounds go backward (N-1,N-2,...,0)
+      const isReverseRound = currentRound % 2 === 0;
+      const memberIndex = isReverseRound
+        ? numPlayers - 1 - positionInRound
+        : positionInRound;
+
+      const currentMember = draftOrderMembers[memberIndex];
+      if (!currentMember) return null;
+
+      const positionNames = ['Sole Survivor', 'Runner Up', 'Third Place'];
+      const currentPositionName = positionNames[currentRound - 1] || `Position ${currentRound}`;
+
+      // Check if it's the current user's turn
+      const isCurrentUserTurn = currentMember.userId === user.id;
+
+      // For the current user, determine which slot they should pick
+      let userNextSlot: number | null = null;
+      if (isCurrentUserTurn) {
+        const userPickCount = leagueDraftState[user.id] || 0;
+        userNextSlot = userPickCount; // Next slot index (0, 1, or 2)
+      }
+
+      return {
+        canDraftFinal3: isCurrentUserTurn,
+        canDraftBoot: true,
+        currentSlotIndex: isCurrentUserTurn ? userNextSlot : null,
+        nextPlayer: currentMember,
+        message: isCurrentUserTurn
+          ? `Pick your ${currentPositionName}`
+          : `${currentMember.displayName || currentMember.username} is picking the ${currentPositionName}`
+      };
+
+    } catch (error) {
+      console.error('Error calculating draft turn:', error);
+      return null;
+    }
+  }, [draftStatus, draftOrderMembers, leagueDraftState, user?.id]);
 
   // Fetch current week for the season
   const currentWeekKey = createKey('current-week', selectedLeague?.id);
@@ -99,6 +274,10 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     if (success) {
       // Refresh roster to get latest data
       await refreshRoster();
+      // Invalidate league draft state to update turn calculations
+      if (selectedLeague?.id) {
+        mutate(createKey('league-draft-state', selectedLeague.id));
+      }
       setIsReplacementDrawerOpen(false);
       setSelectedSlotIndex(null);
     } else {
@@ -213,6 +392,11 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         <div className="flex items-center gap-2 mb-4">
           <div className="w-1 h-6 rounded-full" style={{ backgroundColor: '#BFFF0B' }} />
           <h2 className="text-2xl">Final 3 Picks</h2>
+          {draftStatus === 'in_progress' && currentDraftTurn && (
+            <div className="ml-4 text-sm text-slate-400">
+              {currentDraftTurn.message}
+            </div>
+          )}
         </div>
         
         <div className="space-y-4">
@@ -278,23 +462,51 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-700 flex items-center justify-center flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-700 flex items-center justify-center flex-shrink-0"
+                           style={{ borderColor: '#BFFF0B' }}>
                         <UserPlus className="w-8 h-8 text-slate-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-400">Empty Slot {index + 1}</h3>
+                        <h3 className="text-lg font-semibold text-slate-400">
+                          {index === 0 ? 'Sole Survivor' : index === 1 ? 'Runner Up' : 'Third Place'}
+                        </h3>
                         <p className="text-sm text-slate-500">No contestant selected</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDraftClick(final3Slots.indexOf(slot))}
-                      className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800 flex-shrink-0"
-                      style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                    >
-                      Draft Player
-                    </button>
+
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      {draftStatus === 'in_progress' && (
+                        <div className="text-sm">
+                          {currentDraftTurn?.currentSlotIndex === index ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: '#BFFF0B', color: '#000' }}>
+                              YOUR TURN
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs bg-slate-700 text-slate-400">
+                              Waiting...
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => handleDraftClick(index)}
+                        disabled={draftStatus === 'in_progress' && currentDraftTurn?.currentSlotIndex !== index}
+                        className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 ${
+                          draftStatus === 'in_progress' && currentDraftTurn?.currentSlotIndex !== index
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-slate-800'
+                        }`}
+                        style={{
+                          borderColor: draftStatus === 'in_progress' && currentDraftTurn?.currentSlotIndex !== index ? '#64748b' : '#BFFF0B',
+                          color: draftStatus === 'in_progress' && currentDraftTurn?.currentSlotIndex !== index ? '#64748b' : '#BFFF0B'
+                        }}
+                      >
+                        {draftStatus === 'in_progress' && currentDraftTurn?.currentSlotIndex !== index ? 'Not Your Turn' : 'Draft Player'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
