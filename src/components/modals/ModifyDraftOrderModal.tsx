@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-=======
 import React, { useState, useEffect, useRef } from 'react';
->>>>>>> origin/main
 import { X, GripVertical, Save } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
@@ -33,11 +29,7 @@ export default function ModifyDraftOrderModal({
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-<<<<<<< HEAD
   const hasInitialized = useRef(false);
-=======
-  const prevFetchedMembersRef = useRef<string>('');
->>>>>>> origin/main
 
   // Fetch league members for draft order
   const membersKey = createKey('draft-order-members', leagueId);
@@ -51,9 +43,6 @@ export default function ModifyDraftOrderModal({
 
   // Initialize members when data is loaded and modal is open
   useEffect(() => {
-<<<<<<< HEAD
-    if (isOpen && fetchedMembers.length > 0 && !hasInitialized.current) {
-=======
     if (!isOpen || !leagueId) {
       if (members.length > 0) {
         setMembers([]);
@@ -78,7 +67,6 @@ export default function ModifyDraftOrderModal({
 
     if (fetchedMembers.length > 0) {
       // Sort by draft_order (nulls last), then by joined_at
->>>>>>> origin/main
       const sorted = [...fetchedMembers].sort((a, b) => {
         if (a.draftOrder !== null && b.draftOrder !== null) {
           return a.draftOrder - b.draftOrder;
@@ -89,24 +77,10 @@ export default function ModifyDraftOrderModal({
       });
       
       setMembers(sorted);
-<<<<<<< HEAD
-      hasInitialized.current = true;
-    }
-  }, [isOpen, fetchedMembers]);
-
-  // Reset when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      hasInitialized.current = false;
-      setMembers([]);
-    }
-  }, [isOpen]);
-=======
     } else {
       setMembers([]);
     }
   }, [fetchedMembers, isLoading, isOpen, leagueId]);
->>>>>>> origin/main
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
