@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { Season } from '../../models/types';
 import { getRandomLeagueNamePun } from '../../models/constants';
@@ -11,12 +11,10 @@ interface CreateLeagueModalProps {
   isLoadingSeasons: boolean;
   leagueName: string;
   selectedSeason: number | null;
-  draftDate: Date;
   isCreating: boolean;
   error: string | null;
   onLeagueNameChange: (name: string) => void;
   onSeasonSelect: (seasonId: number) => void;
-  onDraftDateChange: (date: Date) => void;
   onCreate: () => void;
   onClearError: () => void;
 }
@@ -28,24 +26,14 @@ export default function CreateLeagueModal({
   isLoadingSeasons,
   leagueName,
   selectedSeason,
-  draftDate,
   isCreating,
   error,
   onLeagueNameChange,
   onSeasonSelect,
-  onDraftDateChange,
   onCreate,
   onClearError,
 }: CreateLeagueModalProps) {
-  const [localDraftDate, setLocalDraftDate] = useState(
-    draftDate.toISOString().slice(0, 16)
-  );
   const [placeholderText, setPlaceholderText] = useState(getRandomLeagueNamePun());
-
-  // Update local draft date when prop changes
-  useEffect(() => {
-    setLocalDraftDate(draftDate.toISOString().slice(0, 16));
-  }, [draftDate]);
 
   // Generate new random placeholder when modal opens
   useEffect(() => {
@@ -64,12 +52,6 @@ export default function CreateLeagueModal({
 
   if (!isOpen) return null;
 
-  const handleDraftDateChange = (value: string) => {
-    setLocalDraftDate(value);
-    if (value) {
-      onDraftDateChange(new Date(value));
-    }
-  };
 
   const handleClose = () => {
     if (!isCreating) {
@@ -77,7 +59,7 @@ export default function CreateLeagueModal({
     }
   };
 
-  const isValid = leagueName.length >= 3 && selectedSeason !== null && draftDate;
+  const isValid = leagueName.length >= 3 && selectedSeason !== null;
 
   return (
     <>
@@ -163,23 +145,6 @@ export default function CreateLeagueModal({
               )}
             </div>
 
-            {/* Draft Date */}
-            <div>
-              <label className="block mb-2 text-sm text-slate-400">
-                Draft Date
-              </label>
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  value={localDraftDate}
-                  onChange={(e) => handleDraftDateChange(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
-                  className="w-full px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 focus:outline-none focus:border-teal-600 transition-colors text-white pr-10"
-                  disabled={isCreating}
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
-              </div>
-            </div>
           </div>
 
           {/* Footer */}

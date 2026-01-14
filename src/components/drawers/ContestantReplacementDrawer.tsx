@@ -1,4 +1,6 @@
+import React from 'react';
 import { X, Check } from 'lucide-react';
+import { Button } from '../ui/button';
 import type { Contestant, RosterSlot } from '../../models';
 
 interface ContestantReplacementDrawerProps {
@@ -22,6 +24,15 @@ export default function ContestantReplacementDrawer({
   onSelectContestant,
   roster,
 }: ContestantReplacementDrawerProps) {
+  const [selectedContestant, setSelectedContestant] = React.useState<Contestant | null>(null);
+
+  // Clear selected contestant when modal closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setSelectedContestant(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Get the heading based on slot type and index
@@ -65,8 +76,18 @@ export default function ContestantReplacementDrawer({
   );
 
   const handleSelect = (contestant: Contestant) => {
-    onSelectContestant(contestant);
-    onClose();
+    setSelectedContestant(contestant);
+  };
+
+  const handleConfirm = () => {
+    if (selectedContestant) {
+      onSelectContestant(selectedContestant);
+      setSelectedContestant(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setSelectedContestant(null);
   };
 
   return (
@@ -112,7 +133,11 @@ export default function ContestantReplacementDrawer({
                     <button
                       key={contestant.id}
                       onClick={() => handleSelect(contestant)}
-                      className="w-full bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all border-2 border-transparent hover:border-slate-700"
+                      className={`w-full bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all border-2 ${
+                        selectedContestant?.id === contestant.id
+                          ? 'border-[#BFFF0B] bg-slate-800'
+                          : 'border-transparent hover:border-slate-700'
+                      }`}
                     >
                       <div className="flex items-center gap-4">
                         {/* Profile Image */}
@@ -195,6 +220,28 @@ export default function ContestantReplacementDrawer({
               </div>
             )}
           </div>
+
+          {/* Footer with Confirm/Cancel buttons - only show when contestant is selected */}
+          {selectedContestant && (
+            <div className="p-4 lg:p-6 border-t border-slate-800">
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleCancel}
+                  variant="outline"
+                  className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="flex-1 font-semibold"
+                  style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                >
+                  Confirm Draft
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

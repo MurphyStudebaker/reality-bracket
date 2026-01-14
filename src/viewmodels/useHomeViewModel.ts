@@ -14,7 +14,6 @@ export const useHomeViewModel = () => {
   const [inviteCode, setInviteCode] = useState("");
   const [leagueName, setLeagueName] = useState("");
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
-  const [draftDate, setDraftDate] = useState<Date>(new Date(2026, 1, 14));
   const [viewingSeason, setViewingSeason] = useState<Season | null>(null);
   const [activeTab, setActiveTab] = useState("join");
   const [isCreatingLeague, setIsCreatingLeague] = useState(false);
@@ -177,7 +176,7 @@ export const useHomeViewModel = () => {
 
   // Computed values
   const canJoinLeague = inviteCode && inviteCode.length === 6;
-  const canCreateLeague = leagueName && selectedSeason && draftDate;
+  const canCreateLeague = leagueName && selectedSeason;
 
   // Actions
   const handleJoinLeague = async () => {
@@ -234,22 +233,17 @@ export const useHomeViewModel = () => {
         return;
       }
 
-      // Format draft date as YYYY-MM-DD
-      const draftDateStr = draftDate.toISOString().split('T')[0];
-
       // Create league
       const league = await SupabaseService.createLeague(
         leagueName,
         dbSeason.id,
-        currentUser.id,
-        draftDateStr
+        currentUser.id
       );
       
       if (league) {
         // Success - reset form and close
         setLeagueName("");
         setSelectedSeason(null);
-        setDraftDate(new Date(2026, 1, 14));
         setIsSheetOpen(false);
         // Refresh leagues list
         await refreshLeagues();
@@ -266,9 +260,6 @@ export const useHomeViewModel = () => {
     setSelectedSeason(seasonId);
   };
 
-  const handleDraftDateChange = (date: Date) => {
-    setDraftDate(date);
-  };
 
   const handleViewSeason = (season: Season) => {
     setViewingSeason(season);
@@ -289,7 +280,6 @@ export const useHomeViewModel = () => {
     inviteCode,
     leagueName,
     selectedSeason,
-    draftDate,
     viewingSeason,
     activeTab,
 
@@ -319,7 +309,6 @@ export const useHomeViewModel = () => {
     setLeagueName,
     setActiveTab,
     handleSeasonSelect,
-    handleDraftDateChange,
     handleJoinLeague,
     handleCreateLeague,
     handleViewSeason,
