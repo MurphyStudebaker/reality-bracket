@@ -545,39 +545,28 @@ export class SupabaseService {
         throw leagueError || new Error('Failed to create league');
       }
 
-      // Get user's username from users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('username')
-        .eq('id', userId)
-        .single();
-
+      // Generate a Survivor-themed display name for the league creator
       let displayName: string;
-      if (userError || !userData || !userData.username) {
-        // Generate a Survivor-themed username if user doesn't have one
-        // Try up to 5 times to ensure uniqueness
-        let attempts = 0;
-        let updateError = null;
-        do {
-          displayName = generateSurvivorUsername();
-          
-          // Update the users table with the generated username
-          const { error } = await supabase
-            .from('users')
-            .update({ username: displayName })
-            .eq('id', userId);
-          
-          updateError = error;
-          attempts++;
-        } while (updateError && updateError.code === '23505' && attempts < 5); // 23505 is unique violation
-        
-        if (updateError && updateError.code !== '23505') {
-          console.error('Error updating username:', updateError);
-          // Continue anyway with the generated username for display_name
+      let nameAttempts = 0;
+      let hasConflict = false;
+      do {
+        displayName = generateSurvivorUsername();
+
+        // Check if this display_name is already taken in this league
+        const { data: existingMember } = await supabase
+          .from('league_members')
+          .select('id')
+          .eq('league_id', league.id)
+          .eq('display_name', displayName)
+          .single();
+
+        if (!existingMember) {
+          hasConflict = false; // Success - name is available
+        } else {
+          hasConflict = true; // Name is taken, try again
+          nameAttempts++;
         }
-      } else {
-        displayName = userData.username;
-      }
+      } while (hasConflict && nameAttempts < 5);
 
       // Add creator as member with display_name set to username
       const { error: memberError } = await supabase
@@ -1151,12 +1140,15 @@ export class SupabaseService {
         }
       }
 
-      // Update league status to draft_open
+      // Update league status to draft_open and set draft_date
       const { data: updatedLeague, error: statusError } = await supabase
         .from('leagues')
-        .update({ status: 'draft_open' })
+        .update({
+          status: 'draft_open',
+          draft_date: new Date().toISOString()
+        })
         .eq('id', leagueId)
-        .select('id, status')
+        .select('id, status, draft_date')
         .single();
 
       if (statusError) {
@@ -1268,14 +1260,7 @@ export class SupabaseService {
         return null;
       }
 
-      // Get username
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('username')
-        .eq('id', currentMember.user_id)
-        .single();
-
-      const displayName = currentMember.display_name || user?.username || `Player ${currentMember.user_id.substring(0, 8)}`;
+      const displayName = currentMember.display_name || `Player ${currentMember.user_id.substring(0, 8)}`;
 
       return {
         currentPlayerId: currentMember.user_id,
@@ -1340,25 +1325,6 @@ export class SupabaseService {
     }
   }
 
-  // Start draft for a league by setting draft_date to current date
-  static async startDraft(leagueId: string): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('leagues')
-        .update({ draft_date: new Date().toISOString().split('T')[0] }) // YYYY-MM-DD format
-        .eq('id', leagueId);
-
-      if (error) {
-        console.error('Error starting draft:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error in startDraft:', error);
-      return false;
-    }
-  }
 
   // Fallback method: Query league_members and users separately
   static async getLeagueStandingsFallback(leagueId: string): Promise<LeagueStanding[]> {

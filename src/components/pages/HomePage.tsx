@@ -208,12 +208,10 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
         isLoadingSeasons={viewModel.isLoadingSeasons}
         leagueName={viewModel.leagueName}
         selectedSeason={viewModel.selectedSeason}
-        draftDate={viewModel.draftDate}
         isCreating={viewModel.isCreatingLeague}
         error={viewModel.createLeagueError}
         onLeagueNameChange={viewModel.setLeagueName}
         onSeasonSelect={viewModel.handleSeasonSelect}
-        onDraftDateChange={viewModel.handleDraftDateChange}
         onCreate={viewModel.handleCreateLeague}
         onClearError={viewModel.clearCreateLeagueError}
       />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
@@ -14,8 +14,8 @@ interface League {
   id: string;
   name: string;
   season: string;
-  seasonNumber?: number;
-  seasonName?: string;
+  seasonNumber: number;
+  seasonName: string;
   memberCount: number;
   inviteCode: string;
 }
@@ -42,6 +42,9 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     leaguesKey,
     fetcher
   );
+
+  // Get the current league data from the loaded leagues array (which has complete season data)
+  const currentLeagueData = leagues.find(league => league.id === selectedLeague?.id);
 
   // Set selected league when leagues are loaded (if no league is currently selected)
   // Also validate that the selected league is still in the leagues array
@@ -134,26 +137,15 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     }
   );
 
-  // Helper function to check if it's user's turn for a Final 3 position using snake draft logic
+  // Helper function to check if it's user's turn for a Final 3 position
   const isUserTurnForPosition = (position: 1 | 2 | 3): boolean => {
-    if (!hasDraftStarted || !user?.id || !selectedLeague?.id) {
+    if (!hasDraftStarted || !user?.id || !selectedLeague?.id || !currentDraftTurn) {
       return false;
     }
 
     try {
-      // Get draft order members
-      // For now, use a simplified approach - check if user has fewer than the required picks
-      const userPickCount = leagueDraftState[user.id] || 0;
-      const userRosterPicks = roster.filter(slot => slot.type === 'final3' && slot.contestant).length;
-
-      // If user already has 3 picks, they can't draft more
-      if (userRosterPicks >= 3) {
-        return false;
-      }
-
-      // Simple logic: allow drafting if user has picks < position
-      // This is a simplified version - in production you'd want full snake draft logic
-      return userRosterPicks === position - 1;
+      // Check if it's the current user's turn and for the correct position
+      return currentDraftTurn.currentPlayerId === user.id && currentDraftTurn.position === position;
     } catch (error) {
       console.error('Error checking user turn:', error);
       return false;
@@ -253,10 +245,11 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   };
 
   const handleCopyInviteCode = async () => {
-    if (!selectedLeague?.inviteCode) return;
+    const inviteCode = currentLeagueData?.inviteCode || selectedLeague?.inviteCode;
+    if (!inviteCode) return;
 
     try {
-      await navigator.clipboard.writeText(selectedLeague.inviteCode);
+      await navigator.clipboard.writeText(inviteCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -314,7 +307,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-slate-400">
           <div className="flex flex-col">
             <p className="text-sm">
-              Survivor {selectedLeague.seasonNumber}: {selectedLeague.seasonName}
+              Survivor {currentLeagueData?.seasonNumber || selectedLeague.seasonNumber}: {currentLeagueData?.seasonName || selectedLeague.seasonName}
             </p>
             {currentWeek > 0 && (
               <p className="text-xs text-slate-500 mt-0.5">
@@ -322,7 +315,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
               </p>
             )}
           </div>
-          {selectedLeague.inviteCode && (
+          {(currentLeagueData?.inviteCode || selectedLeague.inviteCode) && (
             <>
               <span className="hidden sm:inline text-slate-600">•</span>
               <button
@@ -331,7 +324,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 title="Click to copy invite code"
               >
                 <span>Invite Code:</span>
-                <span className="font-mono font-semibold text-white">{selectedLeague.inviteCode}</span>
+                <span className="font-mono font-semibold text-white">{currentLeagueData?.inviteCode || selectedLeague.inviteCode}</span>
                 {copied ? (
                   <Check className="w-4 h-4 text-green-500" />
                 ) : (
@@ -542,14 +535,10 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                     handleDraftClick(bootIndex);
                   }
                 }}
-                disabled={!hasDraftStarted}
-                className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 ${
-                  hasDraftStarted
-                    ? 'hover:bg-slate-800 cursor-pointer'
-                    : 'opacity-50 cursor-not-allowed'
-                }`}
+                disabled={false}
+                className="px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 hover:bg-slate-800 cursor-pointer"
                 style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                title={!hasDraftStarted ? 'Draft has not started yet' : 'Draft Player'}
+                title="Draft Player"
               >
                 Draft Player
               </button>

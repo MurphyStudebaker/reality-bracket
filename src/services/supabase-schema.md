@@ -78,6 +78,7 @@ CREATE TABLE league_members (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   total_points INTEGER DEFAULT 0,
+  draft_order INTEGER,
   UNIQUE(league_id, user_id)
 );
 ```
