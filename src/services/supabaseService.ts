@@ -854,6 +854,22 @@ export class SupabaseService {
         return null;
       }
 
+      // If this is a final3 pick, advance the draft turn
+      if (pickType === 'final3') {
+        try {
+          const advanced = await this.advanceDraftTurn(leagueId);
+          if (!advanced) {
+            console.error('Failed to advance draft turn after pick. LeagueId:', leagueId, 'UserId:', userId);
+            // Don't throw error here - the pick was successful, we just need to log the issue
+          } else {
+            console.log('Successfully advanced draft turn. LeagueId:', leagueId);
+          }
+        } catch (error) {
+          console.error('Error advancing draft turn:', error);
+          // Don't throw - the pick was successful
+        }
+      }
+
       // Transform database columns to TypeScript interface
       return {
         id: data.id,
@@ -1140,12 +1156,31 @@ export class SupabaseService {
         }
       }
 
-      // Update league status to draft_open and set draft_date
+      // Get the first player in draft order to initialize the turn
+      const { data: orderedMembers, error: orderedError } = await supabase
+        .from('league_members')
+        .select('user_id')
+        .eq('league_id', leagueId)
+        .not('draft_order', 'is', null)
+        .order('draft_order', { ascending: true })
+        .limit(1);
+
+      if (orderedError || !orderedMembers || orderedMembers.length === 0) {
+        console.error('Error fetching first player for draft turn:', orderedError);
+        return false;
+      }
+
+      const firstPlayerId = orderedMembers[0].user_id;
+
+      // Update league status to draft_open, set draft_date, and initialize first player's turn
       const { data: updatedLeague, error: statusError } = await supabase
         .from('leagues')
         .update({
           status: 'draft_open',
-          draft_date: new Date().toISOString()
+          draft_date: new Date().toISOString(),
+          current_draft_user_id: firstPlayerId,
+          current_draft_position: 1,
+          current_draft_pick_number: 1
         })
         .eq('id', leagueId)
         .select('id, status, draft_date')
@@ -1169,7 +1204,7 @@ export class SupabaseService {
     }
   }
 
-  // Get current draft turn information
+  // Get current draft turn information from database
   static async getCurrentDraftTurn(leagueId: string): Promise<{
     currentPlayerId: string | null;
     currentPlayerName: string | null;
@@ -1177,100 +1212,207 @@ export class SupabaseService {
     pickNumber: number | null; // Which pick in the position (1-based)
   } | null> {
     try {
-      // Get all league members with draft order
+      // Get league with current draft turn info
+      const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('current_draft_user_id, current_draft_position, current_draft_pick_number')
+        .eq('id', leagueId)
+        .single();
+
+      if (leagueError || !league) {
+        console.error('Error fetching league draft turn:', leagueError);
+        return null;
+      }
+
+      // If no current draft turn set, draft hasn't started or is completed
+      if (!league.current_draft_user_id || !league.current_draft_position || !league.current_draft_pick_number) {
+        return null;
+      }
+
+      // Get the member info for the current player
+      const { data: member, error: memberError } = await supabase
+        .from('league_members')
+        .select('display_name')
+        .eq('league_id', leagueId)
+        .eq('user_id', league.current_draft_user_id)
+        .single();
+
+      if (memberError) {
+        console.error('Error fetching member info:', memberError);
+        return null;
+      }
+
+      const displayName = member?.display_name || `Player ${league.current_draft_user_id.substring(0, 8)}`;
+
+      return {
+        currentPlayerId: league.current_draft_user_id,
+        currentPlayerName: displayName,
+        position: league.current_draft_position,
+        pickNumber: league.current_draft_pick_number,
+      };
+    } catch (error) {
+      console.error('Error in getCurrentDraftTurn:', error);
+      return null;
+    }
+  }
+
+  // Advance the draft turn to the next player
+  static async advanceDraftTurn(leagueId: string): Promise<boolean> {
+    try {
+      console.log('advanceDraftTurn called for leagueId:', leagueId);
+      
+      // Get current draft turn info
+      const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('current_draft_user_id, current_draft_position, current_draft_pick_number')
+        .eq('id', leagueId)
+        .single();
+
+      if (leagueError || !league || !league.current_draft_position || !league.current_draft_pick_number) {
+        console.error('Error fetching league draft turn:', leagueError, 'League:', league);
+        return false;
+      }
+
+      console.log('Current draft state:', {
+        position: league.current_draft_position,
+        pickNumber: league.current_draft_pick_number,
+        userId: league.current_draft_user_id
+      });
+
+      // Get all league members in draft order
       const { data: members, error: membersError } = await supabase
         .from('league_members')
-        .select('id, user_id, draft_order, display_name')
+        .select('user_id')
         .eq('league_id', leagueId)
         .not('draft_order', 'is', null)
         .order('draft_order', { ascending: true });
 
       if (membersError || !members || members.length === 0) {
-        return null;
+        console.error('Error fetching league members:', membersError);
+        return false;
       }
 
-      // Get all roster picks for Final 3 positions
-      const { data: picks, error: picksError } = await supabase
-        .from('roster_picks')
-        .select('user_id, pick_type')
-        .eq('league_id', leagueId)
-        .eq('pick_type', 'final3')
-        .order('picked_at', { ascending: true });
-
-      if (picksError) {
-        console.error('Error fetching roster picks:', picksError);
-        return null;
-      }
-
-      // Count picks per position
-      const picksByUser = new Map<string, number>();
-      picks?.forEach(pick => {
-        const count = picksByUser.get(pick.user_id) || 0;
-        picksByUser.set(pick.user_id, count + 1);
-      });
-
-      // Determine which position we're on and whose turn it is
-      // Snake draft: Position 1 forward, Position 2 reversed, Position 3 forward
-      const totalPicks = picks?.length || 0;
       const numPlayers = members.length;
-      const picksPerPosition = numPlayers;
+      const currentPosition = league.current_draft_position;
+      const currentPickNumber = league.current_draft_pick_number;
 
-      // Check if all positions are filled for all players
-      const picksByPosition = new Map<number, Set<string>>();
-      picks?.forEach(pick => {
-        // Count how many picks each user has made
-        const userPicks = picks.filter(p => p.user_id === pick.user_id).length;
-        const position = userPicks; // 1, 2, or 3
-        
-        if (!picksByPosition.has(position)) {
-          picksByPosition.set(position, new Set());
+      // Determine draft order for current position (snake draft)
+      let draftOrder: string[];
+      if (currentPosition === 1 || currentPosition === 3) {
+        // Forward order
+        draftOrder = members.map(m => m.user_id);
+      } else {
+        // Reverse order for position 2
+        draftOrder = members.slice().reverse().map(m => m.user_id);
+      }
+
+      // Find current player index in draft order
+      const currentPlayerIndex = draftOrder.indexOf(league.current_draft_user_id!);
+      let nextPlayerIndex = currentPlayerIndex + 1;
+
+      // Check if we've completed this position (all players have picked)
+      if (nextPlayerIndex >= draftOrder.length) {
+        // Move to next position
+        if (currentPosition >= 3) {
+          // Draft completed - clear draft turn fields
+          const { error: updateError } = await supabase
+            .from('leagues')
+            .update({
+              current_draft_user_id: null,
+              current_draft_position: null,
+              current_draft_pick_number: null,
+              status: 'draft_closed'
+            })
+            .eq('id', leagueId);
+
+          if (updateError) {
+            console.error('Error completing draft:', updateError);
+            return false;
+          }
+          return true;
         }
-        picksByPosition.get(position)!.add(pick.user_id);
+
+        // Start next position with first player in that position's order
+        const nextPosition = currentPosition + 1;
+        let nextPositionDraftOrder: string[];
+        if (nextPosition === 2) {
+          // Reverse order for position 2
+          nextPositionDraftOrder = members.slice().reverse().map(m => m.user_id);
+        } else {
+          // Forward order for position 3
+          nextPositionDraftOrder = members.map(m => m.user_id);
+        }
+
+        console.log('Moving to next position:', {
+          nextPosition,
+          nextPlayerId: nextPositionDraftOrder[0],
+          nextPositionDraftOrder
+        });
+
+        const { data: updatedLeague, error: updateError } = await supabase
+          .from('leagues')
+          .update({
+            current_draft_user_id: nextPositionDraftOrder[0],
+            current_draft_position: nextPosition,
+            current_draft_pick_number: 1
+          })
+          .eq('id', leagueId)
+          .select('current_draft_user_id, current_draft_position, current_draft_pick_number')
+          .single();
+
+        if (updateError || !updatedLeague) {
+          console.error('Error advancing to next position:', updateError, 'Updated league:', updatedLeague);
+          return false;
+        }
+
+        console.log('Successfully moved to next position. New state:', {
+          position: updatedLeague.current_draft_position,
+          pickNumber: updatedLeague.current_draft_pick_number,
+          userId: updatedLeague.current_draft_user_id
+        });
+
+        return true;
+      }
+
+      // Move to next player in current position
+      const nextPlayerId = draftOrder[nextPlayerIndex];
+      
+      if (!nextPlayerId) {
+        console.error('No next player found. nextPlayerIndex:', nextPlayerIndex, 'draftOrder:', draftOrder);
+        return false;
+      }
+
+      console.log('Advancing to next player:', {
+        nextPlayerId,
+        nextPickNumber: currentPickNumber + 1,
+        currentPosition
       });
 
-      // Check if all players have picked for each position
-      let currentPosition: number = 1;
-      if (picksByPosition.get(1)?.size === numPlayers) {
-        currentPosition = 2;
-        if (picksByPosition.get(2)?.size === numPlayers) {
-          currentPosition = 3;
-          if (picksByPosition.get(3)?.size === numPlayers) {
-            // Draft completed
-            return null;
-          }
-        }
+      const { data: updatedLeague, error: updateError } = await supabase
+        .from('leagues')
+        .update({
+          current_draft_user_id: nextPlayerId,
+          current_draft_pick_number: currentPickNumber + 1
+        })
+        .eq('id', leagueId)
+        .select('current_draft_user_id, current_draft_position, current_draft_pick_number')
+        .single();
+
+      if (updateError || !updatedLeague) {
+        console.error('Error advancing draft turn:', updateError, 'Updated league:', updatedLeague);
+        return false;
       }
 
-      // Calculate which pick in the current position
-      const picksInCurrentPosition = picksByPosition.get(currentPosition)?.size || 0;
-      const currentPickInPosition = picksInCurrentPosition + 1;
+      console.log('Successfully advanced draft turn. New state:', {
+        position: updatedLeague.current_draft_position,
+        pickNumber: updatedLeague.current_draft_pick_number,
+        userId: updatedLeague.current_draft_user_id
+      });
 
-      // Determine player index based on position and pick number
-      let currentPlayerIndex: number;
-      if (currentPosition === 1 || currentPosition === 3) {
-        // Forward order: 0, 1, 2, 3, ...
-        currentPlayerIndex = (currentPickInPosition - 1) % numPlayers;
-      } else {
-        // Reverse order: last person picks first, then backwards
-        currentPlayerIndex = numPlayers - 1 - ((currentPickInPosition - 1) % numPlayers);
-      }
-
-      const currentMember = members[currentPlayerIndex];
-      if (!currentMember) {
-        return null;
-      }
-
-      const displayName = currentMember.display_name || `Player ${currentMember.user_id.substring(0, 8)}`;
-
-      return {
-        currentPlayerId: currentMember.user_id,
-        currentPlayerName: displayName,
-        position: currentPosition,
-        pickNumber: currentPickInPosition,
-      };
+      return true;
     } catch (error) {
-      console.error('Error in getCurrentDraftTurn:', error);
-      return null;
+      console.error('Error in advanceDraftTurn:', error);
+      return false;
     }
   }
 
@@ -1658,6 +1800,60 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error in getActivityEventsForContestants:', error);
       return [];
+    }
+  }
+
+  // Get roster picks grouped by Final 3 position for a league
+  // Returns a map of position (1, 2, or 3) to array of contestant IDs already drafted for that position
+  static async getRosterPicksByPosition(leagueId: string): Promise<Record<number, string[]>> {
+    try {
+      const { data: picks, error: picksError } = await supabase
+        .from('roster_picks')
+        .select('user_id, contestant_id, pick_type, picked_at')
+        .eq('league_id', leagueId)
+        .eq('pick_type', 'final3')
+        .order('picked_at', { ascending: true });
+
+      if (picksError || !picks) {
+        console.error('Error fetching roster picks by position:', picksError);
+        return {};
+      }
+
+      // Group picks by user, then determine position based on order
+      const picksByUser: Record<string, Array<{ contestantId: string; position: number }>> = {};
+      
+      picks.forEach((pick: any) => {
+        if (!picksByUser[pick.user_id]) {
+          picksByUser[pick.user_id] = [];
+        }
+        const position = picksByUser[pick.user_id].length + 1; // 1st pick = position 1, 2nd = position 2, etc.
+        picksByUser[pick.user_id].push({
+          contestantId: pick.contestant_id,
+          position: position
+        });
+      });
+
+      // Create a map of position to contestant IDs
+      const picksByPosition: Record<number, string[]> = {
+        1: [],
+        2: [],
+        3: []
+      };
+
+      Object.values(picksByUser).forEach(userPicks => {
+        userPicks.forEach(({ contestantId, position }) => {
+          if (position >= 1 && position <= 3) {
+            if (!picksByPosition[position].includes(contestantId)) {
+              picksByPosition[position].push(contestantId);
+            }
+          }
+        });
+      });
+
+      return picksByPosition;
+    } catch (error) {
+      console.error('Error in getRosterPicksByPosition:', error);
+      return {};
     }
   }
 

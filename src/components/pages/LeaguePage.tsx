@@ -6,6 +6,7 @@ import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import UserRosterDrawer from '../drawers/UserRosterDrawer';
+import { Progress } from '../ui/progress';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import type { LeagueStanding } from '../../models';
@@ -65,7 +66,11 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     pickNumber: number | null;
   } | null>(
     hasDraftStarted ? draftTurnKey : null,
-    fetcher
+    fetcher,
+    {
+      refreshInterval: 2000, // Poll every 2 seconds when draft is in progress
+      revalidateOnFocus: true,
+    }
   );
 
   // Handle start draft confirmation
@@ -418,9 +423,39 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                   }
                 })()}
               </h3>
-              <p className="text-blue-200/80 text-sm">
-                It's <span className="font-semibold text-blue-300">{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.
+              <p className="text-blue-200/80 text-sm mb-3">
+                {currentDraftTurn.currentPlayerId === currentUser?.id ? (
+                  <span>It's <span className="font-semibold text-blue-300">your</span> turn to draft for this position.</span>
+                ) : (
+                  <span>It's <span className="font-semibold text-blue-300">{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.</span>
+                )}
               </p>
+
+              {/* Draft Progress Bar */}
+              {(() => {
+                const totalPlayers = draftOrderMembers.length;
+                const totalPicksNeeded = totalPlayers * 3;
+                const currentPicks = Object.values(leagueDraftState).reduce((sum, count) => sum + count, 0);
+                const progressPercentage = totalPicksNeeded > 0 
+                  ? Math.round((currentPicks / totalPicksNeeded) * 100) 
+                  : 0;
+
+                return (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-blue-200/60">
+                      <span>Draft Progress</span>
+                      <span>{currentPicks} / {totalPicksNeeded} picks</span>
+                    </div>
+                    <Progress 
+                      value={progressPercentage} 
+                      className="h-2 bg-blue-900/30 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-blue-400"
+                    />
+                    <div className="text-center text-xs text-blue-200/60">
+                      {progressPercentage}% complete
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

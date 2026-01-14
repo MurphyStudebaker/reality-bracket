@@ -12,6 +12,8 @@ interface ContestantReplacementDrawerProps {
   slotIndex: number; // Index of the slot being drafted (0-2 for final3, 3 for boot)
   onSelectContestant: (contestant: Contestant) => void;
   roster: RosterSlot[]; // Current roster to check for already selected contestants
+  leagueId: string | null;
+  rosterPicksByPosition: Record<number, string[]>; // Map of position (1-3) to contestant IDs already drafted for that position
 }
 
 export default function ContestantReplacementDrawer({
@@ -23,6 +25,8 @@ export default function ContestantReplacementDrawer({
   slotIndex,
   onSelectContestant,
   roster,
+  leagueId,
+  rosterPicksByPosition,
 }: ContestantReplacementDrawerProps) {
   const [selectedContestant, setSelectedContestant] = React.useState<Contestant | null>(null);
 
@@ -54,25 +58,39 @@ export default function ContestantReplacementDrawer({
     return 'Select a contestant';
   };
 
-  // Get IDs of contestants already selected in other roster slots
+  // Get IDs of contestants already selected in other roster slots (current user's picks)
   const alreadySelectedContestantIds = roster
     .map(slot => slot.contestant?.id)
     .filter((id): id is string => id !== undefined && id !== currentContestant?.id);
 
-  // Available players are those with 'active' status AND not already selected in other positions
+  // For Final 3 positions, also get contestants already drafted for this position by other league members
+  const positionDraftedContestantIds: string[] = [];
+  if (slotType === 'final3' && slotIndex >= 0 && slotIndex <= 2) {
+    const position = slotIndex + 1; // Convert slotIndex (0-2) to position (1-3)
+    positionDraftedContestantIds.push(...(rosterPicksByPosition[position] || []));
+  }
+
+  // Combine all excluded contestant IDs (user's own picks + league-wide picks for same position)
+  const excludedContestantIds = new Set([
+    ...alreadySelectedContestantIds,
+    ...positionDraftedContestantIds
+  ]);
+
+  // Available players are those with 'active' status AND not excluded
   const availableContestants = contestants.filter(
-    c => c.status === 'active' && !alreadySelectedContestantIds.includes(c.id)
+    c => c.status === 'active' && !excludedContestantIds.has(c.id)
   );
   
   // Unavailable players include:
   // 1. Those with 'eliminated', 'jury', or 'final3' status
-  // 2. Those already selected in other roster positions
+  // 2. Those already selected in other roster positions (current user)
+  // 3. Those already drafted for this position by other league members (for Final 3 positions)
   const unavailableContestants = contestants.filter(
     c => 
       c.status === 'eliminated' || 
       c.status === 'jury' || 
       c.status === 'final3' ||
-      (c.status === 'active' && alreadySelectedContestantIds.includes(c.id))
+      (c.status === 'active' && excludedContestantIds.has(c.id))
   );
 
   const handleSelect = (contestant: Contestant) => {
@@ -206,6 +224,10 @@ export default function ContestantReplacementDrawer({
                           {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
                           {contestant.status === 'final3' && 'Final 3'}
                           {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'Already Selected'}
+                          {contestant.status === 'active' && 
+                           !alreadySelectedContestantIds.includes(contestant.id) && 
+                           positionDraftedContestantIds.includes(contestant.id) && 
+                           'Already Drafted'}
                         </div>
                       </div>
                     </div>

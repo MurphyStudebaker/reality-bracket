@@ -98,7 +98,11 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     pickNumber: number | null;
   } | null>(
     hasDraftStarted ? draftTurnKey : null,
-    fetcher
+    fetcher,
+    {
+      refreshInterval: 2000, // Poll every 2 seconds when draft is in progress
+      revalidateOnFocus: true,
+    }
   );
 
   // Get league-wide draft state (count of picks per member) for snake draft logic
@@ -135,6 +139,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         return {};
       }
     }
+  );
+
+  // Get roster picks grouped by position to filter out already-drafted contestants
+  const rosterPicksByPositionKey = createKey('roster-picks-by-position', selectedLeague?.id);
+  const { data: rosterPicksByPosition = {} } = useSWR<Record<number, string[]>>(
+    selectedLeague?.id && hasDraftStarted ? rosterPicksByPositionKey : null,
+    fetcher
   );
 
   // Helper function to check if it's user's turn for a Final 3 position
@@ -215,7 +226,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
 
         // Refresh draft turn if draft has started
         if (hasDraftStarted && draftTurnKey) {
-          await mutate(draftTurnKey);
+          await mutate(draftTurnKey, undefined, { revalidate: true });
         }
         
         setIsDraftConfirmOpen(false);
@@ -596,6 +607,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
         onSelectContestant={handleSelectContestant}
         roster={roster}
+        leagueId={selectedLeague?.id || null}
+        rosterPicksByPosition={rosterPicksByPosition}
       />
 
       {/* Draft Confirmation Modal */}
