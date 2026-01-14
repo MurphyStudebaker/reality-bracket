@@ -63,6 +63,7 @@ CREATE TABLE leagues (
   created_by_id UUID REFERENCES users(id) ON DELETE CASCADE,
   invite_code TEXT UNIQUE NOT NULL,
   draft_date DATE,
+  status TEXT CHECK (status IN ('not_started', 'draft_open', 'draft_closed', 'completed')) DEFAULT 'not_started',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```

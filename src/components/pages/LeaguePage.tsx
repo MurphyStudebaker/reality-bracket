@@ -4,6 +4,7 @@ import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
+import ConfirmationModal from '../modals/ConfirmationModal';
 import UserRosterDrawer from '../drawers/UserRosterDrawer';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
@@ -17,6 +18,7 @@ interface League {
   seasonName: string;
   memberCount: number;
   inviteCode: string;
+  createdById?: string;
 }
 
 interface DraftOrderMember {
@@ -39,11 +41,74 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const [copied, setCopied] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isDraftOrderModalOpen, setIsDraftOrderModalOpen] = useState(false);
+  const [isStartDraftConfirmOpen, setIsStartDraftConfirmOpen] = useState(false);
+  const [isStartingDraft, setIsStartingDraft] = useState(false);
   const [selectedUserForRoster, setSelectedUserForRoster] = useState<{ userId: string; username: string } | null>(null);
 
   // Fetch current user
   const userKey = createKey('current-user');
   const { data: currentUser } = useSWR<{ id: string } | null>(userKey, fetcher);
+
+  // Check if current user is the league commissioner
+  const isCommissioner = currentUser && selectedLeague?.createdById && currentUser.id === selectedLeague.createdById;
+
+  // Check if draft has started
+  const draftStartedKey = createKey('draft-started', selectedLeague?.id);
+  const { data: hasDraftStarted = false } = useSWR<boolean>(
+    draftStartedKey,
+    fetcher
+  );
+
+  // Fetch current draft turn
+  const draftTurnKey = createKey('draft-turn', selectedLeague?.id);
+  const { data: currentDraftTurn, mutate: mutateDraftTurn } = useSWR<{
+    currentPlayerId: string | null;
+    currentPlayerName: string | null;
+    position: number | null;
+    pickNumber: number | null;
+  } | null>(
+    hasDraftStarted ? draftTurnKey : null,
+    fetcher
+  );
+
+  // Handle start draft confirmation
+  const handleStartDraftClick = () => {
+    setIsStartDraftConfirmOpen(true);
+  };
+
+  // Handle start draft (after confirmation)
+  const handleStartDraft = async () => {
+    if (!selectedLeague?.id) return;
+    
+    setIsStartingDraft(true);
+    try {
+      console.log('Starting draft for league:', selectedLeague.id);
+      const success = await SupabaseService.startDraft(selectedLeague.id);
+      console.log('Start draft result:', success);
+      
+      if (success) {
+        setIsStartDraftConfirmOpen(false);
+        // Refresh draft status and turn
+        if (draftStartedKey) {
+          await mutate(draftStartedKey);
+        }
+        // Also invalidate leagues cache to refresh status
+        const leaguesKey = createKey('leagues-selector', currentUser?.id);
+        if (leaguesKey) {
+          await mutate(leaguesKey);
+        }
+        await mutateDraftTurn();
+      } else {
+        console.error('Start draft returned false');
+        alert('Failed to start draft. Please check the console for details and ensure you have permission to update the league.');
+      }
+    } catch (error: any) {
+      console.error('Error starting draft:', error);
+      alert(`An error occurred while starting the draft: ${error?.message || 'Unknown error'}. Please check the console for details.`);
+    } finally {
+      setIsStartingDraft(false);
+    }
+  };
 
   // Handle user click - navigate to roster if it's the current user, otherwise show drawer
   const handleUserClick = (userId: string, username: string) => {
@@ -642,6 +707,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
 
         <div className="h-4"></div>
 
+<<<<<<< HEAD
         {/* Current Draft Turn */}
         {draftStatus === 'in_progress' && currentDraftTurn && (
           <div className="my-6 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-xl border-2 border-blue-700/50 p-6">
@@ -737,13 +803,102 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                   borderColor: '#64748b',
                   backgroundColor: 'rgba(100, 116, 139, 0.1)',
                   color: '#94a3b8'
+=======
+        {/* Draft Turn Indicator */}
+        {hasDraftStarted && currentDraftTurn && currentDraftTurn.currentPlayerName && currentDraftTurn.position && (
+          <div className="mb-6">
+            <div className="bg-gradient-to-br from-[#BFFF0B]/20 to-[#BFFF0B]/10 rounded-xl border-2 border-[#BFFF0B]/50 p-4">
+              <p className="text-center text-[#BFFF0B] font-semibold">
+                It's <span className="text-white">{currentDraftTurn.currentPlayerName}'s</span> turn to draft a contestant for{' '}
+                <span className="text-white">
+                  {currentDraftTurn.position === 1
+                    ? 'Position 1 (Sole Survivor)'
+                    : currentDraftTurn.position === 2
+                    ? 'Position 2'
+                    : 'Position 3'}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Draft Controls - Only visible to commissioner */}
+        {isCommissioner ? (
+          <div className="mt-6 flex flex-col gap-3">
+            {/* Begin Draft Button */}
+            <button
+              onClick={handleStartDraftClick}
+              disabled={isDraftCompleted || hasDraftStarted}
+              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+                isDraftCompleted
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+              }`}
+              style={
+                isDraftCompleted
+                  ? { backgroundColor: '#475569', color: '#94a3b8' }
+                  : { 
+                    borderColor: '#BFFF0B',
+                    backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                    color: '#BFFF0B'
+                  }
+              }
+            >
+              {isDraftCompleted ? (
+                <>
+                  <Lock className="w-5 h-5" />
+                  <span>Draft Completed</span>
+                </>
+              ) : hasDraftStarted ? (
+                <>
+                  <Play className="w-5 h-5" />
+                  <span>Draft In Progress</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-5 h-5" />
+                  <span>Begin Draft</span>
+                </>
+              )}
+            </button>
+
+            {/* Modify Draft Order Button */}
+            <button
+              onClick={() => {
+                if (!isDraftCompleted) {
+                  setIsDraftOrderModalOpen(true);
+>>>>>>> origin/main
                 }
-            }
-          >
-            <ArrowUpDown className="w-5 h-5" />
-            <span>Modify Draft Order</span>
-          </button>
-        </div>
+              }}
+              disabled={isDraftCompleted}
+              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+                isDraftCompleted
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+              }`}
+              style={
+                isDraftCompleted
+                  ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                  : {
+                    borderColor: '#64748b',
+                    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                    color: '#94a3b8'
+                  }
+              }
+            >
+              <ArrowUpDown className="w-5 h-5" />
+              <span>Modify Draft Order</span>
+            </button>
+          </div>
+        ) : (
+          <div className="mt-6">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+              <p className="text-slate-400 text-center">
+                Only the league commissioner can modify the draft order and begin the draft.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* League Selector Drawer */}
@@ -780,6 +935,22 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           }
         }}
         leagueId={selectedLeague?.id || null}
+      />
+
+      {/* Start Draft Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isStartDraftConfirmOpen}
+        onClose={() => setIsStartDraftConfirmOpen(false)}
+        onConfirm={handleStartDraft}
+        title="Start Draft"
+        message="Are you sure you want to start the draft? Once started, players will be able to draft contestants in snake draft order. Make sure the draft order is set correctly before starting."
+        confirmText="Start Draft"
+        cancelText="Cancel"
+        isLoading={isStartingDraft}
+        confirmButtonStyle={{
+          backgroundColor: '#BFFF0B',
+          color: '#000',
+        }}
       />
 
       {/* User Roster Drawer */}
