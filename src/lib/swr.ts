@@ -103,6 +103,13 @@ export const fetcher = async <T = any>(key: string): Promise<T> => {
       }
       return await SupabaseService.getAllRosterPicksForLeague(args[0]) as T;
     
+    case 'roster-picks-by-position':
+      // args[0] = leagueId
+      if (!args[0]) {
+        return {} as T;
+      }
+      return await SupabaseService.getRosterPicksByPosition(args[0]) as T;
+    
     case 'league-activity-events':
       // args[0] = seasonId
       if (!args[0]) {
