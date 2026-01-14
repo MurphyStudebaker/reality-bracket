@@ -29,7 +29,7 @@ export default function ModifyDraftOrderModal({
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const hasInitialized = useRef(false);
+  const prevFetchedMembersRef = useRef<string>('');
 
   // Fetch league members for draft order
   const membersKey = createKey('draft-order-members', leagueId);

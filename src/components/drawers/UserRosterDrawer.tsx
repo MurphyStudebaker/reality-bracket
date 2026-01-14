@@ -29,6 +29,7 @@ export default function UserRosterDrawer({
 
   // Fetch points for each pick
   const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
+  const prevPicksRef = useRef<string>('');
   
   useEffect(() => {
     if (!isOpen || !userId || !leagueId || !picks || picks.length === 0) {
@@ -41,6 +42,11 @@ export default function UserRosterDrawer({
 
     // Create a stable string representation of picks to detect changes
     const picksKey = picks.map(p => `${p.id}:${p.contestant?.id || ''}`).sort().join('|');
+    
+    // Only fetch if picks actually changed
+    if (prevPicksRef.current === picksKey) {
+      return;
+    }
 
     prevPicksRef.current = picksKey;
 

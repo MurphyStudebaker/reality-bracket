@@ -275,7 +275,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   );
 
   // Calculate current draft turn using actual pick counts
-  const currentDraftTurn = useMemo(() => {
+  const calculatedDraftTurn = useMemo(() => {
     if (draftStatus !== 'in_progress' || draftOrderMembers.length === 0 || !leagueDraftState) {
       return null;
     }
@@ -707,121 +707,6 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
 
         <div className="h-4"></div>
 
-<<<<<<< HEAD
-        {/* Current Draft Turn */}
-        {draftStatus === 'in_progress' && currentDraftTurn && (
-          <div className="my-6 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-xl border-2 border-blue-700/50 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{currentDraftTurn.round}</span>
-              </div>
-              <h3 className="text-xl font-semibold text-white">Round {currentDraftTurn.round} - {currentDraftTurn.positionName}</h3>
-            </div>
-            <p className="text-blue-200">
-              It's <span className="font-semibold text-white">{currentDraftTurn.member.displayName || currentDraftTurn.member.username}</span>'s turn to pick the {currentDraftTurn.positionName}.
-              <br />
-              <span className="text-sm text-blue-300">
-                ({currentDraftTurn.totalPicksMade} of {currentDraftTurn.totalPositions} picks completed)
-              </span>
-            </p>
-          </div>
-        )}
-        <div className="h-4"></div>
-
-        {/* Begin Draft Button */}
-        <div className="mt-6 flex flex-col gap-3">
-          <button
-            onClick={async () => {
-              if (draftStatus === 'not_started' && selectedLeague?.id) {
-                try {
-                  const success = await SupabaseService.startDraft(selectedLeague.id);
-                  if (success) {
-                    // Invalidate draft status to refresh the UI
-                    await mutate(draftStatusKey);
-                    // Also invalidate league data to show updated draft_date
-                    await mutate(createKey('league', selectedLeague.id));
-                  } else {
-                    alert('Failed to start draft. Please try again.');
-                  }
-                } catch (error) {
-                  console.error('Error starting draft:', error);
-                  alert('An error occurred while starting the draft. Please try again.');
-                }
-              }
-            }}
-            disabled={draftStatus !== 'not_started'}
-            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-              draftStatus !== 'not_started'
-                ? 'cursor-not-allowed opacity-60'
-                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-            }`}
-            style={
-              draftStatus !== 'not_started'
-                ? { backgroundColor: '#475569', color: '#94a3b8' }
-                : {
-                  borderColor: '#BFFF0B',
-                  backgroundColor: 'rgba(191, 255, 11, 0.1)',
-                  color: '#BFFF0B'
-                }
-            }
-          >
-            {draftStatus === 'completed' ? (
-              <>
-                <Lock className="w-5 h-5" />
-                <span>Draft Completed</span>
-              </>
-            ) : draftStatus === 'in_progress' ? (
-              <>
-                <Play className="w-5 h-5" />
-                <span>Draft In Progress</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5" />
-                <span>Begin Draft</span>
-              </>
-            )}
-          </button>
-
-          {/* Modify Draft Order Button */}
-          <button
-            onClick={() => {
-              if (draftStatus === 'not_started') {
-                setIsDraftOrderModalOpen(true);
-              }
-            }}
-            disabled={draftStatus !== 'not_started'}
-            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-              draftStatus !== 'not_started'
-                ? 'cursor-not-allowed opacity-60'
-                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-            }`}
-            style={
-              draftStatus !== 'not_started'
-                ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
-                : {
-                  borderColor: '#64748b',
-                  backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                  color: '#94a3b8'
-=======
-        {/* Draft Turn Indicator */}
-        {hasDraftStarted && currentDraftTurn && currentDraftTurn.currentPlayerName && currentDraftTurn.position && (
-          <div className="mb-6">
-            <div className="bg-gradient-to-br from-[#BFFF0B]/20 to-[#BFFF0B]/10 rounded-xl border-2 border-[#BFFF0B]/50 p-4">
-              <p className="text-center text-[#BFFF0B] font-semibold">
-                It's <span className="text-white">{currentDraftTurn.currentPlayerName}'s</span> turn to draft a contestant for{' '}
-                <span className="text-white">
-                  {currentDraftTurn.position === 1
-                    ? 'Position 1 (Sole Survivor)'
-                    : currentDraftTurn.position === 2
-                    ? 'Position 2'
-                    : 'Position 3'}
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Draft Controls - Only visible to commissioner */}
         {isCommissioner ? (
           <div className="mt-6 flex flex-col gap-3">
@@ -867,7 +752,6 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               onClick={() => {
                 if (!isDraftCompleted) {
                   setIsDraftOrderModalOpen(true);
->>>>>>> origin/main
                 }
               }}
               disabled={isDraftCompleted}
