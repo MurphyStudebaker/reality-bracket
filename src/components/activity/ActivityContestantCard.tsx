@@ -33,7 +33,7 @@ export const ActivityContestantCard = ({
                   : "border-slate-700"
               }`}
             >
-              <AvatarImage src={contestant.image || ""} alt={contestant.name} />
+              <AvatarImage src={contestant.image || ""} alt={contestant.name} className="object-cover" />
               <AvatarFallback>
                 {contestant.name
                   .split(" ")
@@ -93,7 +93,7 @@ export const ActivityContestantCard = ({
                       return user ? (
                         <div key={userId} className="relative group">
                           <Avatar className="w-6 h-6 border border-red-500 opacity-70">
-                            <AvatarImage src={user.image} alt={user.name} />
+                            <AvatarImage src={user.image} alt={user.name} className="object-cover" />
                             <AvatarFallback
                               className={`text-[10px] ${user.color} text-white`}
                             >
@@ -127,7 +127,7 @@ export const ActivityContestantCard = ({
                       return user ? (
                         <div key={userId} className="relative group">
                           <Avatar className="w-6 h-6 border-2 border-[#BFFF0B]">
-                            <AvatarImage src={user.image} alt={user.name} />
+                            <AvatarImage src={user.image} alt={user.name} className="object-cover" />
                             <AvatarFallback
                               className={`text-[10px] ${user.color} text-white`}
                             >
@@ -166,7 +166,7 @@ export const ActivityContestantCard = ({
                       return user ? (
                         <div key={userId} className="relative group">
                           <Avatar className="w-6 h-6 border border-[#BFFF0B]">
-                            <AvatarImage src={user.image} alt={user.name} />
+                            <AvatarImage src={user.image} alt={user.name} className="object-cover" />
                             <AvatarFallback
                               className={`text-[10px] ${user.color} text-white`}
                             >
@@ -200,7 +200,7 @@ export const ActivityContestantCard = ({
                       return user ? (
                         <div key={userId} className="relative group">
                           <Avatar className="w-6 h-6 border border-red-400">
-                            <AvatarImage src={user.image} alt={user.name} />
+                            <AvatarImage src={user.image} alt={user.name} className="object-cover" />
                             <AvatarFallback
                               className={`text-[10px] ${user.color} text-white`}
                             >

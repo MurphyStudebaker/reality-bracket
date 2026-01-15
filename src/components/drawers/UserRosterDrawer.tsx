@@ -3,6 +3,7 @@ import { useMemo, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { SupabaseService } from '../../services/supabaseService';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { RosterPick, RosterSlot } from '../../models';
 
 interface UserRosterDrawerProps {
@@ -174,18 +175,23 @@ export default function UserRosterDrawer({
                           {slot.contestant ? (
                             <div className="flex items-center justify-between gap-4">
                               <div className="flex items-center gap-4 flex-1">
-                                <div 
-                                  className={`w-12 h-12 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0 ${
-                                    isEliminated ? 'grayscale' : ''
+                                <Avatar
+                                  className={`w-12 h-12 border-2 flex-shrink-0 ${
+                                    isEliminated ? 'border-slate-500 grayscale' : 'border-[#BFFF0B]'
                                   }`}
-                                  style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
                                 >
-                                  <img
+                                  <AvatarImage
                                     src={slot.contestant.imageUrl}
                                     alt={slot.contestant.name}
-                                    className="w-full h-full object-cover"
+                                    className={`object-cover ${isEliminated ? 'grayscale' : ''}`}
                                   />
-                                </div>
+                                  <AvatarFallback>
+                                    {slot.contestant.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")}
+                                  </AvatarFallback>
+                                </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <h4 className={`text-base font-semibold ${isEliminated ? 'text-slate-500' : 'text-white'}`}>
                                     {slot.contestant.name}
@@ -198,13 +204,9 @@ export default function UserRosterDrawer({
 
                               <div className="flex items-center gap-4 flex-shrink-0">
                                 <div>
-                                  {isEliminated ? (
+                                  {isEliminated && (
                                     <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
                                       Eliminated
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-1 rounded-full text-xs bg-green-600 text-white font-semibold">
-                                      Active
                                     </span>
                                   )}
                                 </div>
@@ -247,13 +249,21 @@ export default function UserRosterDrawer({
                     {bootSlot?.contestant ? (
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-700 border-2 border-red-500 flex-shrink-0">
-                            <img
+                          <Avatar
+                            className="w-12 h-12 border-2 border-red-500 flex-shrink-0"
+                          >
+                            <AvatarImage
                               src={bootSlot.contestant.imageUrl}
                               alt={bootSlot.contestant.name}
-                              className="w-full h-full object-cover"
+                              className={`object-cover ${bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'grayscale' : ''}`}
                             />
-                          </div>
+                            <AvatarFallback>
+                              {bootSlot.contestant.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="flex-1 min-w-0">
                             <h4 className={`text-base font-semibold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-500' : 'text-white'}`}>
                               {bootSlot.contestant.name}

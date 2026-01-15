@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { RosterSlot } from '../../models';
 
 interface ActivityEvent {
@@ -147,14 +148,23 @@ export default function RosterActivityContent({ roster, seasonId, userId, league
                 className="bg-slate-800/50 rounded-lg p-3 border border-slate-700"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0"
-                       style={{ borderColor: pickType === 'boot' ? '#ef4444' : '#BFFF0B' }}>
-                    <img
+                  <Avatar
+                    className={`w-12 h-12 border-2 flex-shrink-0 ${
+                      pickType === 'boot' ? 'border-red-500' : 'border-[#BFFF0B]'
+                    }`}
+                  >
+                    <AvatarImage
                       src={contestant.imageUrl}
                       alt={contestant.name}
-                      className="w-full h-full object-cover"
+                      className="object-cover"
                     />
-                  </div>
+                    <AvatarFallback className="text-xs bg-slate-700 text-white">
+                      {contestant.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold text-white truncate">{contestant.name}</h4>
                     <p className="text-xs text-slate-400">
@@ -166,7 +176,7 @@ export default function RosterActivityContent({ roster, seasonId, userId, league
                   {sortedEvents.map((event) => (
                     <div
                       key={event.id}
-                      className="flex items-center justify-between py-1.5 px-2 bg-slate-900/50 rounded border border-slate-700"
+                      className="flex items-center justify-between py-1.5 px-2 rounded"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-white">

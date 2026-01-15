@@ -36,9 +36,9 @@ export const Bottom1PickCard = ({
               <AvatarImage
                 src={pick.image || ""}
                 alt={pick.name}
-                className={
+                className={`object-cover ${
                   pick.status === "eliminated" ? "grayscale" : ""
-                }
+                }`}
               />
               <AvatarFallback>
                 {pick.name

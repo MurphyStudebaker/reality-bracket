@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { Contestant, RosterSlot } from '../../models';
 
 interface ContestantReplacementDrawerProps {
@@ -153,20 +154,28 @@ export default function ContestantReplacementDrawer({
                       onClick={() => handleSelect(contestant)}
                       className={`w-full bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all border-2 ${
                         selectedContestant?.id === contestant.id
-                          ? 'border-[#BFFF0B] bg-slate-800'
+                          ? 'border-[#BFFF0B]'
                           : 'border-transparent hover:border-slate-700'
                       }`}
+                      style={selectedContestant?.id === contestant.id ? { backgroundColor: 'rgba(34, 197, 94, 0.15)' } : undefined}
                     >
                       <div className="flex items-center gap-4">
                         {/* Profile Image */}
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0"
-                             style={{ borderColor: '#BFFF0B' }}>
-                          <img
+                        <Avatar
+                          className="w-16 h-16 border-2 border-[#BFFF0B] flex-shrink-0"
+                        >
+                          <AvatarImage
                             src={contestant.imageUrl}
                             alt={contestant.name}
-                            className="w-full h-full object-cover"
+                            className="object-cover"
                           />
-                        </div>
+                          <AvatarFallback>
+                            {contestant.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
 
                         {/* Info */}
                         <div className="flex-1 text-left">
@@ -201,13 +210,21 @@ export default function ContestantReplacementDrawer({
                     >
                       <div className="flex items-center gap-4">
                         {/* Profile Image - Grayed Out */}
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 border-slate-700 flex-shrink-0 grayscale">
-                          <img
+                        <Avatar
+                          className="w-16 h-16 border-2 border-slate-700 flex-shrink-0 grayscale"
+                        >
+                          <AvatarImage
                             src={contestant.imageUrl}
                             alt={contestant.name}
-                            className="w-full h-full object-cover"
+                            className="grayscale object-cover"
                           />
-                        </div>
+                          <AvatarFallback className="grayscale">
+                            {contestant.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
 
                         {/* Info */}
                         <div className="flex-1 text-left">
@@ -256,8 +273,11 @@ export default function ContestantReplacementDrawer({
                 </Button>
                 <Button
                   onClick={handleConfirm}
-                  className="flex-1 font-semibold"
-                  style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                  className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  style={{ 
+                      backgroundColor: '#BFFF0B',
+                      color: '#0f172a'
+                  }}
                 >
                   Confirm Draft
                 </Button>

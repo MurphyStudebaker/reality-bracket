@@ -5,6 +5,7 @@ import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
 import RosterActivityModal from '../modals/RosterActivityModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -389,18 +390,23 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                   <div className="flex items-center justify-between gap-4">
                     {/* Left Side: Image, Name, Occupation */}
                     <div className="flex items-center gap-4 flex-1">
-                      <div 
-                        className={`w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0 ${
-                          isEliminated ? 'grayscale' : ''
+                      <Avatar
+                        className={`w-16 h-16 border-2 flex-shrink-0 ${
+                          isEliminated ? 'border-slate-500 grayscale' : 'border-[#BFFF0B]'
                         }`}
-                        style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
                       >
-                        <img
+                        <AvatarImage
                           src={slot.contestant.imageUrl}
                           alt={slot.contestant.name}
-                          className="w-full h-full object-cover"
+                          className={`object-cover ${isEliminated ? 'grayscale' : ''}`}
                         />
-                      </div>
+                        <AvatarFallback>
+                          {slot.contestant.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1 min-w-0">
                         <h3 className={`text-lg font-semibold ${isEliminated ? 'text-slate-500' : 'text-white'}`}>
                           {slot.contestant.name}
@@ -487,13 +493,21 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             <div className="flex items-center justify-between gap-4">
               {/* Left Side: Image, Name, Occupation */}
               <div className="flex items-center gap-4 flex-1">
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-700 border-2 border-red-500 flex-shrink-0">
-                  <img
+                <Avatar
+                  className="w-16 h-16 border-2 border-red-500 flex-shrink-0"
+                >
+                  <AvatarImage
                     src={bootSlot.contestant.imageUrl}
                     alt={bootSlot.contestant.name}
-                    className="w-full h-full object-cover"
+                    className={`object-cover ${bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'grayscale' : ''}`}
                   />
-                </div>
+                  <AvatarFallback>
+                    {bootSlot.contestant.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0">
                   <h3 className={`text-lg font-semibold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-500' : 'text-white'}`}>
                     {bootSlot.contestant.name}

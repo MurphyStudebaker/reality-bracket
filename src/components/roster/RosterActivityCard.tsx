@@ -166,11 +166,27 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0"
                              style={{ borderColor: pickType === 'boot' ? '#ef4444' : '#BFFF0B' }}>
-                          <img
-                            src={contestant.imageUrl}
-                            alt={contestant.name}
-                            className="w-full h-full object-cover"
-                          />
+                          <Avatar
+              className={`w-16 h-16 border-2 ${
+                pick.status === "eliminated"
+                  ? "border-red-400/30"
+                  : "border-red-400/30"
+              }`}
+            >
+              <AvatarImage
+                src={pick.image || ""}
+                alt={pick.name}
+                className={`object-cover ${
+                  pick.status === "eliminated" ? "grayscale" : ""
+                }`}
+              />
+              <AvatarFallback>
+                {pick.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-sm font-semibold text-white">{contestant.name}</h3>

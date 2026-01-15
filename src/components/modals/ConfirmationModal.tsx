@@ -42,7 +42,7 @@ export default function ConfirmationModal({
       {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
       <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
         <div
-          className="bg-slate-900 border-slate-800 flex flex-col max-h-[85vh] lg:max-h-[500px] w-full lg:w-[500px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none"
+          className="bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -76,13 +76,11 @@ export default function ConfirmationModal({
               <Button
                 onClick={handleConfirm}
                 disabled={isLoading}
-                className="flex-1 font-semibold"
-                style={
-                  confirmButtonStyle || {
+                className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                style={{ 
                     backgroundColor: '#BFFF0B',
-                    color: '#000',
-                  }
-                }
+                    color: '#0f172a'
+                }}
               >
                 {isLoading ? 'Processing...' : confirmText}
               </Button>

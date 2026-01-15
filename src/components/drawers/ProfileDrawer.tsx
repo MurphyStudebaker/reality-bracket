@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Camera, Check, Mail, LogOut } from 'lucide-react';
+import { X, Camera, Check, Mail, LogOut, Instagram } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -194,7 +194,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
       {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
       <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
         <div 
-          className="bg-slate-900 border-slate-800 flex flex-col max-h-[85vh] lg:max-h-[700px] w-full lg:w-[600px] rounded-t-3xl lg:rounded-3xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none"
+          className="bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -370,8 +370,9 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             {auth.error}
                           </div>
                         )}
+                        <div className="flex flex-col gap-3">
                         <div>
-                          <label className="text-sm text-slate-400 mb-3 block font-medium">Email</label>
+                          <label className="text-sm text-slate-400 mb-1 block font-medium">Email</label>
                           <Input
                             type="email"
                             value={loginEmail}
@@ -382,7 +383,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                           />
                         </div>
                         <div>
-                          <label className="text-sm text-slate-400 mb-3 block font-medium">Password</label>
+                          <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
                           <Input
                             type="password"
                             value={loginPassword}
@@ -392,6 +393,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                             className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
                           />
                         </div>
+                        <div className="h-2"></div>
                         <div className="flex justify-end">
                           <button
                             type="button"
@@ -400,10 +402,11 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                               setResetEmail(loginEmail);
                               handleRequestPasswordReset(e);
                             }}
-                            className="text-sm text-slate-400 hover:text-slate-300 underline font-medium"
+                            className="text-sm mb-2 text-slate-400 hover:text-slate-300 underline font-medium"
                           >
                             Forgot Password?
                           </button>
+                        </div>
                         </div>
                         <Button
                           type="submit"
@@ -413,18 +416,20 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         >
                           {auth.isLoading ? 'Signing in...' : 'Sign In'}
                         </Button>
+
                       </form>
                     </TabsContent>
 
                   <TabsContent value="signup" className="mt-8">
-                    <form onSubmit={handleSignup} className="space-y-5">
+                    <form onSubmit={handleSignup} className="space-y-8">
                       {auth.error && (
                         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
                           {auth.error}
                         </div>
                       )}
-                      <div>
-                        <label className="text-sm text-slate-400 mb-3 block font-medium">Username</label>
+                      <div className="flex flex-col gap-3">
+                        <div>
+                        <label className="text-sm text-slate-400 mb-1 block font-medium">Username</label>
                         <Input
                           type="text"
                           value={signupUsername}
@@ -435,7 +440,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         />
                       </div>
                       <div>
-                        <label className="text-sm text-slate-400 mb-3 block font-medium">Email</label>
+                        <label className="text-sm text-slate-400 mb-1 mt-2 block font-medium">Email</label>
                         <Input
                           type="email"
                           value={signupEmail}
@@ -446,7 +451,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         />
                       </div>
                       <div>
-                        <label className="text-sm text-slate-400 mb-3 block font-medium">Password</label>
+                        <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
                         <Input
                           type="password"
                           value={signupPassword}
@@ -457,6 +462,8 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                           className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
                         />
                       </div>
+                      </div>
+                      <div className="h-4"></div>
                       <Button
                         type="submit"
                         disabled={auth.isLoading}
@@ -557,11 +564,10 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     const isEditing = editingLeagueId === league.id;
                     // Use display name if set, otherwise show placeholder
                     const currentDisplayName = leagueDisplayNames[league.id] || 'Not set';
-
                     return (
                       <div
                         key={league.id}
-                        className="bg-slate-800/50 rounded-xl p-5"
+                        className="rounded-xl p-5 py-2"
                       >
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div className="flex-1 min-w-0">
@@ -618,21 +624,35 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 {/* Support Section */}
                 <div>
                   <h3 className="text-sm text-slate-400 mb-4 font-semibold">SUPPORT</h3>
-                  <p className="text-xs text-slate-400 my-4">This app is built by an individual developer. If you have any issues or feedback, please contact me.</p>
+                  <p className="text-xs text-slate-400 my-4 mb-4">This app is built by an individual developer. If you have any issues or feedback, please contact me and I'll try to fix it.</p>
+                  <div className="flex flex-col gap-1 my-2">
                   <a
                     href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
-                    className="block bg-slate-800/50 rounded-xl p-5 hover:bg-slate-800 transition-all"
+                    className="block p-2 rounded-lg hover:bg-slate-800 transition-all"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(191, 255, 11, 0.1)' }}>
                         <Mail className="w-5 h-5" style={{ color: '#BFFF0B' }} />
                       </div>
                       <div className="flex-1">
-                        <p className="mb-1">Contact Support</p>
-                        <p className="text-xs text-slate-400">Get help or report an issue</p>
+                        <p className="mb-1">murphy.stude@gmail.com</p>
                       </div>
                     </div>
                   </a>
+                  <a
+                    href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
+                    className="block mt-2 mb-2 p-2 rounded-lg hover:bg-slate-800 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(191, 255, 11, 0.1)' }}>
+                        <Instagram className="w-5 h-5" style={{ color: '#BFFF0B' }} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="mb-1">@murphystudebaker</p>
+                      </div>
+                    </div>
+                  </a>
+                  </div>
                 </div>
               </>
             )}
