@@ -37,7 +37,7 @@ export const Final3PickCard = ({
               <AvatarImage
                 src={pick.image || ""}
                 alt={pick.name}
-                className={pick.isEliminated ? "grayscale" : ""}
+                className={`object-cover ${pick.isEliminated ? "grayscale" : ""}`}
               />
               <AvatarFallback>
                 {pick.name

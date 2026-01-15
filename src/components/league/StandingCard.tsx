@@ -41,7 +41,7 @@ export const StandingCard = ({ standing }: StandingCardProps) => {
 
         {/* Avatar and Name */}
         <Avatar className="w-10 h-10">
-          <AvatarImage src={standing.avatar} alt={standing.name} />
+          <AvatarImage src={standing.avatar} alt={standing.name} className="object-cover" />
           <AvatarFallback>{standing.name[0]}</AvatarFallback>
         </Avatar>
         <div className="flex-1">

@@ -17,7 +17,7 @@ export const PodiumDisplay = ({ topThree }: PodiumDisplayProps) => {
       <div className="flex-1 flex flex-col items-center">
         <Medal className="w-6 h-6 text-slate-400 mb-2" />
         <Avatar className="w-14 h-14 border-2 border-slate-600 mb-2">
-          <AvatarImage src={second.avatar} alt={second.name} />
+          <AvatarImage src={second.avatar} alt={second.name} className="object-cover" />
           <AvatarFallback>{second.name[0]}</AvatarFallback>
         </Avatar>
         <p className="text-xs text-white">{second.name}</p>
@@ -31,7 +31,7 @@ export const PodiumDisplay = ({ topThree }: PodiumDisplayProps) => {
       <div className="flex-1 flex flex-col items-center">
         <Trophy className="w-8 h-8 text-lime-400 mb-2" />
         <Avatar className="w-16 h-16 border-2 border-lime-400 mb-2">
-          <AvatarImage src={first.avatar} alt={first.name} />
+          <AvatarImage src={first.avatar} alt={first.name} className="object-cover" />
           <AvatarFallback>{first.name[0]}</AvatarFallback>
         </Avatar>
         <p className="text-xs text-white">{first.name}</p>
@@ -45,7 +45,7 @@ export const PodiumDisplay = ({ topThree }: PodiumDisplayProps) => {
       <div className="flex-1 flex flex-col items-center">
         <Medal className="w-6 h-6 text-amber-700 mb-2" />
         <Avatar className="w-14 h-14 border-2 border-amber-700 mb-2">
-          <AvatarImage src={third.avatar} alt={third.name} />
+          <AvatarImage src={third.avatar} alt={third.name} className="object-cover" />
           <AvatarFallback>{third.name[0]}</AvatarFallback>
         </Avatar>
         <p className="text-xs text-white">{third.name}</p>

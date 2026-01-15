@@ -43,7 +43,7 @@ export const ContestantCard = ({
             {contestant.image ? (
               <AvatarImage
                 src={contestant.image}
-                className={isOnRoster ? "grayscale" : ""}
+                className={`object-cover ${isOnRoster ? "grayscale" : ""}`}
               />
             ) : (
               <AvatarFallback
