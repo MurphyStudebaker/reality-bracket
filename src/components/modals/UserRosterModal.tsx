@@ -6,7 +6,7 @@ import { SupabaseService } from '../../services/supabaseService';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { RosterPick, RosterSlot } from '../../models';
 
-interface UserRosterDrawerProps {
+interface UserRosterModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string | null;
@@ -14,13 +14,13 @@ interface UserRosterDrawerProps {
   username: string;
 }
 
-export default function UserRosterDrawer({ 
+export default function UserRosterModal({ 
   isOpen, 
   onClose, 
   userId, 
   leagueId, 
   username 
-}: UserRosterDrawerProps) {
+}: UserRosterModalProps) {
   // Fetch roster data for the user
   const rosterKey = createKey('roster', userId, leagueId);
   const { data: picks = [], isLoading: isLoadingRoster } = useSWR<RosterPick[]>(
@@ -130,12 +130,12 @@ export default function UserRosterDrawer({
 
       {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
       <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div 
-          className="bg-slate-900 border-slate-800 flex flex-col max-h-[85vh] lg:max-h-[700px] w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none"
+        <div
+          className="modal-shell bg-slate-900 border-slate-800 flex flex-col w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-800">
+          <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
             <h2 className="text-xl">{username}'s Roster</h2>
             <button
               onClick={onClose}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, GripVertical, Save } from 'lucide-react';
 import useSWR from 'swr';
-import { mutate } from 'swr';
+import BaseModal from './BaseModal';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import { Button } from '../ui/button';
@@ -134,117 +134,106 @@ export default function ModifyDraftOrderModal({
   const displayName = (member: DraftOrderMember) => 
     member.displayName || member.username || `Player ${member.userId.substring(0, 8)}`;
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
-      <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div
-          className="bg-slate-900 border-slate-800 flex flex-col max-h-[85vh] lg:max-h-[700px] w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 lg:p-8 border-b border-slate-800">
-            <div>
-              <h2 className="text-xl">Modify Draft Order</h2>
-              <p className="text-sm text-slate-400 mt-1">
-                Drag and drop to reorder. Default order is based on join date.
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-slate-400">Loading members...</div>
-              </div>
-            ) : members.length === 0 ? (
-              <div className="text-center text-slate-400 py-8">
-                <p>No league members found.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {members.map((member, index) => (
-                  <div
-                    key={member.id}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                    className={`
-                      bg-slate-800/50 rounded-xl p-4 cursor-move
-                      transition-all hover:bg-slate-800
-                      ${draggedIndex === index ? 'opacity-50' : ''}
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0">
-                        <GripVertical className="w-5 h-5 text-slate-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-300">
-                            {index + 1}.
-                          </span>
-                          <span className="text-sm font-medium text-white truncate">
-                            {displayName(member)}
-                          </span>
-                        </div>
-                        {member.displayName && member.displayName !== member.username && (
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            @{member.username}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 lg:p-8 border-t border-slate-800">
-            <div className="flex gap-3">
-              <Button
-                onClick={onClose}
-                variant="outline"
-                className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || isLoading || members.length === 0}
-                className="flex-1 font-semibold"
-                style={{ backgroundColor: '#BFFF0B', color: '#000' }}
-              >
-                {isSaving ? (
-                  'Saving...'
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Order
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
+  const header = (
+    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
+      <div>
+        <h2 className="text-xl">Modify Draft Order</h2>
+        <p className="text-sm text-slate-400 mt-1">
+          Drag and drop to reorder. Default order is based on join date.
+        </p>
       </div>
-    </>
+      <button
+        onClick={onClose}
+        className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  );
+
+  const footer = (
+    <div className="flex gap-3">
+      <Button
+        onClick={onClose}
+        variant="outline"
+        className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSave}
+        disabled={isSaving || isLoading || members.length === 0}
+        className="flex-1 font-semibold"
+        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+      >
+        {isSaving ? (
+          'Saving...'
+        ) : (
+          <>
+            <Save className="w-4 h-4 mr-2" />
+            Save Order
+          </>
+        )}
+      </Button>
+    </div>
+  );
+
+  return (
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      header={header}
+      bodyClassName="p-6 lg:p-8"
+      footer={footer}
+    >
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-slate-400">Loading members...</div>
+        </div>
+      ) : members.length === 0 ? (
+        <div className="text-center text-slate-400 py-8">
+          <p>No league members found.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {members.map((member, index) => (
+            <div
+              key={member.id}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`
+                bg-slate-800/50 rounded-xl p-4 cursor-move
+                transition-all hover:bg-slate-800
+                ${draggedIndex === index ? 'opacity-50' : ''}
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <GripVertical className="w-5 h-5 text-slate-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-300">
+                      {index + 1}.
+                    </span>
+                    <span className="text-sm font-medium text-white truncate">
+                      {displayName(member)}
+                    </span>
+                  </div>
+                  {member.displayName && member.displayName !== member.username && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      @{member.username}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </BaseModal>
   );
 }
 

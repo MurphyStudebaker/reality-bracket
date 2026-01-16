@@ -116,6 +116,12 @@ export const fetcher = async <T = any>(key: string): Promise<T> => {
         return [] as T;
       }
       return await SupabaseService.getActivityEventsForSeason(args[0]) as T;
+
+    case 'latest-elimination-week':
+      if (!args[0]) {
+        return 0 as T;
+      }
+      return await SupabaseService.getLatestEliminationWeek(args[0]) as T;
     
     case 'draft-started':
       // args[0] = leagueId

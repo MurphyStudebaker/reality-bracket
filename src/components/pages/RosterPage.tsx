@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
-import ContestantReplacementDrawer from '../drawers/ContestantReplacementDrawer';
+import ContestantReplacementModal from '../modals/ContestantReplacementModal';
 import RosterActivityModal from '../modals/RosterActivityModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -29,7 +29,7 @@ interface RosterPageProps {
 export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPageProps) {
   const { user } = useAuthViewModel();
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [isReplacementDrawerOpen, setIsReplacementDrawerOpen] = useState(false);
+  const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
@@ -68,6 +68,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   // Use roster viewmodel
   const {
     roster,
+    picks = [],
     availableContestants,
     isLoading: isLoadingRoster,
     error: rosterError,
@@ -82,6 +83,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     currentWeekKey,
     fetcher
   );
+
+  const latestEliminationWeekKey = createKey('latest-elimination-week', seasonId);
+  const { data: latestEliminationWeek = 0 } = useSWR<number>(
+    latestEliminationWeekKey,
+    fetcher
+  );
+  const nextBootWeek = Math.max(latestEliminationWeek + 1, 1);
 
   // Check if draft has started
   const draftStartedKey = createKey('draft-started', selectedLeague?.id);
@@ -166,6 +174,10 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
+  const bootSlotIndex = roster.findIndex(slot => slot.type === 'boot');
+  const currentBootWeek = bootSlot?.weekNumber ?? 0;
+  const isCurrentBootPickActive = Boolean(bootSlot?.contestant && bootSlot?.weekNumber === nextBootWeek);
+  const canDraftBoot = currentBootWeek < nextBootWeek;
 
   const handleDraftClick = (index: number) => {
     if (!hasDraftStarted) {
@@ -184,17 +196,20 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         return; // Don't allow if it's not their turn
       }
     }
+    if (slot.type === 'boot' && !canDraftBoot) {
+      return;
+    }
     // Boot position can always be drafted (no turn restriction)
 
     setSelectedSlotIndex(index);
-    setIsReplacementDrawerOpen(true);
+    setIsReplacementModalOpen(true);
   };
 
   const handleSelectContestant = (contestant: Contestant) => {
     // Show confirmation modal instead of directly drafting
     setPendingContestant(contestant);
     setIsDraftConfirmOpen(true);
-    setIsReplacementDrawerOpen(false);
+    setIsReplacementModalOpen(false);
   };
 
   const handleConfirmDraft = async () => {
@@ -214,7 +229,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     setIsDrafting(true);
     try {
       // Add contestant to roster via viewmodel (which writes to Supabase)
-      const success = await addContestantToRoster(pendingContestant.id, slot.type, selectedSlotIndex);
+      const weekNumberForPick = slot.type === 'boot' ? nextBootWeek : undefined;
+      const success = await addContestantToRoster(
+        pendingContestant.id,
+        slot.type,
+        selectedSlotIndex,
+        weekNumberForPick
+      );
       
       if (success) {
         // Refresh roster to get latest data
@@ -481,61 +502,58 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
 
       {/* Next Boot Section */}
       <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-2">
           <div className="w-1 h-6 rounded-full bg-red-500" />
-          <h2 className="text-2xl">Next Boot Pick</h2>
+          <div>
+            <h2 className="text-2xl">Next Boot Pick</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isCurrentBootPickActive
+                ? `Locked in for Week ${nextBootWeek}.`
+                : latestEliminationWeek === 0
+                  ? `Week ${nextBootWeek} pick is available now.`
+                  : `Next Boot pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
+            </p>
+          </div>
         </div>
 
-        <div className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-4 relative overflow-hidden ${
-          bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'opacity-60 grayscale' : ''
-        }`}>
-          {bootSlot?.contestant ? (
+        <div
+          className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-4 relative overflow-hidden ${
+            isCurrentBootPickActive ? '' : 'border-dashed border-red-500/60'
+          }`}
+        >
+          {isCurrentBootPickActive && bootSlot?.contestant ? (
             <div className="flex items-center justify-between gap-4">
-              {/* Left Side: Image, Name, Occupation */}
               <div className="flex items-center gap-4 flex-1">
-                <Avatar
-                  className="w-16 h-16 border-2 border-red-500 flex-shrink-0"
-                >
+                <Avatar className="w-16 h-16 border-2 border-red-500 flex-shrink-0">
                   <AvatarImage
                     src={bootSlot.contestant.imageUrl}
                     alt={bootSlot.contestant.name}
-                    className={`object-cover ${bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'grayscale' : ''}`}
+                    className="object-cover"
                   />
                   <AvatarFallback>
                     {bootSlot.contestant.name
-                      .split(" ")
+                      .split(' ')
                       .map((n) => n[0])
-                      .join("")}
+                      .join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <h3 className={`text-lg font-semibold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-500' : 'text-white'}`}>
-                    {bootSlot.contestant.name}
-                  </h3>
-                  <p className={`text-sm ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <div className="text-xs uppercase tracking-wide text-red-400 mb-1">Week {nextBootWeek}</div>
+                  <h3 className="text-lg font-semibold text-white">{bootSlot.contestant.name}</h3>
+                  <p className="text-sm text-slate-400">
                     {bootSlot.contestant.occupation || 'N/A'}
                   </p>
                 </div>
               </div>
 
-              {/* Right Side: Status and Points */}
               <div className="flex items-center gap-6 flex-shrink-0">
-                {/* Status Badge */}
                 <div>
-                  {isContestantEliminated(bootSlot.contestant) ? (
-                    <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
-                      Eliminated
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
-                      BOOT
-                    </span>
-                  )}
+                  <span className="px-3 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
+                    BOOT
+                  </span>
                 </div>
-                
-                {/* Points */}
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
+                  <div className="text-2xl font-bold text-[#BFFF0B]">
                     {bootSlot.points ?? 0}
                   </div>
                   <div className="text-xs text-slate-500">points</div>
@@ -543,30 +561,46 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center py-4">
-              <div className="flex items-center gap-4 flex-1">
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
                   <UserPlus className="w-8 h-8 text-slate-600" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-400">Empty Slot</h3>
-                  <p className="text-sm text-slate-500">No contestant selected</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-slate-400">
+                    {bootSlot?.contestant ? `Last Week ${bootSlot.weekNumber || '?'} pick: ${bootSlot.contestant.name}` : `No pick yet for Week ${nextBootWeek}`}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    {canDraftBoot
+                      ? `Select a contestant for Week ${nextBootWeek} before the elimination airs.`
+                      : `Waiting for Week ${latestEliminationWeek || 1} elimination to unlock Week ${nextBootWeek}.`}
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  const bootIndex = roster.findIndex(slot => slot.type === 'boot');
-                  if (bootIndex !== -1) {
-                    handleDraftClick(bootIndex);
-                  }
+                  if (!canDraftBoot || bootSlotIndex === -1) return;
+                  handleDraftClick(bootSlotIndex);
                 }}
-                disabled={false}
-                className="px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 hover:bg-slate-800 cursor-pointer"
-                style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                title="Draft Player"
+                disabled={!canDraftBoot}
+                className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 font-semibold ${
+                  canDraftBoot
+                    ? 'border-[#BFFF0B] text-[#BFFF0B] hover:bg-slate-800 cursor-pointer'
+                    : 'border-red-600 text-red-400 opacity-60 cursor-not-allowed'
+                }`}
+                title={
+                  canDraftBoot
+                    ? `Draft a contestant for Week ${nextBootWeek}`
+                    : `Next Boot pick unlocks after Week ${latestEliminationWeek || 1}`
+                }
               >
                 Draft Player
               </button>
+              {!canDraftBoot && (
+                <p className="text-xs text-slate-500">
+                  Once the next elimination is recorded you can choose a Week {nextBootWeek} boot pick.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -608,11 +642,11 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         />
       )}
 
-      {/* Contestant Replacement Drawer */}
-      <ContestantReplacementDrawer
-        isOpen={isReplacementDrawerOpen}
+      {/* Contestant Replacement Modal */}
+      <ContestantReplacementModal
+        isOpen={isReplacementModalOpen}
         onClose={() => {
-          setIsReplacementDrawerOpen(false);
+          setIsReplacementModalOpen(false);
           setSelectedSlotIndex(null);
         }}
         contestants={availableContestants}
@@ -633,14 +667,14 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             setIsDraftConfirmOpen(false);
             setPendingContestant(null);
             // Reopen the drawer so user can select a different contestant
-            setIsReplacementDrawerOpen(true);
+            setIsReplacementModalOpen(true);
           }}
           onConfirm={handleConfirmDraft}
           title="Confirm Draft Selection"
           message={
             selectedSlotIndex < 3
               ? `Are you sure you want to draft ${pendingContestant.name} for Position ${selectedSlotIndex + 1} (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
-              : `Are you sure you want to draft ${pendingContestant.name} as your Next Boot pick?`
+              : `Are you sure you want to draft ${pendingContestant.name} as your Week ${nextBootWeek} Next Boot pick?`
           }
           confirmText="Confirm Draft"
           cancelText="Cancel"
@@ -657,6 +691,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         isOpen={isActivityModalOpen}
         onClose={() => setIsActivityModalOpen(false)}
         roster={roster}
+        picks={picks}
         seasonId={seasonId || null}
         userId={user?.id || null}
         leagueId={selectedLeague?.id || null}

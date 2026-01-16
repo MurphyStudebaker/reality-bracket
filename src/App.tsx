@@ -5,8 +5,8 @@ import RosterPage from './components/pages/RosterPage';
 import LeaguePage from './components/pages/LeaguePage';
 import MagicLinkPage from './components/pages/MagicLinkPage';
 import PasswordResetPage from './components/pages/PasswordResetPage';
-import LatestActivityDrawer from './components/drawers/LatestActivityDrawer';
-import ProfileDrawer from './components/drawers/ProfileDrawer';
+import LatestActivityModal from './components/modals/LatestActivityModal';
+import ProfileModal from './components/modals/ProfileModal';
 import { useAuthViewModel } from './viewmodels/auth.viewmodel';
 import logoImage from './assets/icon.png';
 
@@ -26,8 +26,8 @@ export default function App() {
   const auth = useAuthViewModel();
 
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
-  const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
-  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [isLatestActivityModalOpen, setIsLatestActivityModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
 
   // Check for special routes (magic link, password reset)
@@ -116,7 +116,7 @@ export default function App() {
           {/* Right Side Buttons */}
           <div className="flex items-center gap-2">
             {/* <button
-              onClick={() => setIsActivityDrawerOpen(true)}
+              onClick={() => setIsLatestActivityModalOpen(true)}
               className="p-2 rounded-lg border-2 transition-all hover:bg-slate-800"
               style={{
                 borderColor: '#BFFF0B',
@@ -129,7 +129,7 @@ export default function App() {
 
             {auth.isAuthenticated ? (
               <button
-                onClick={() => setIsProfileDrawerOpen(true)}
+                onClick={() => setIsProfileModalOpen(true)}
                 className="p-2 rounded-lg border-2 border-slate-700 transition-all hover:bg-slate-800 text-slate-400 hover:text-slate-300"
                 aria-label="Account settings"
               >
@@ -137,7 +137,7 @@ export default function App() {
               </button>
             ) : (
               <button
-                onClick={() => setIsProfileDrawerOpen(true)}
+                onClick={() => setIsProfileModalOpen(true)}
                 className="px-4 py-2 rounded-lg border-2 transition-all hover:bg-slate-800 flex items-center gap-2"
                 style={{
                   borderColor: '#BFFF0B',
@@ -172,7 +172,7 @@ export default function App() {
                     setSelectedLeague(league);
                     setCurrentScreen('league');
                   }}
-                  onSignInClick={() => setIsProfileDrawerOpen(true)}
+                  onSignInClick={() => setIsProfileModalOpen(true)}
                 />
               )}
               {auth.isAuthenticated && currentScreen === 'roster' && (
@@ -218,17 +218,17 @@ export default function App() {
 
       {/* Latest Activity Drawer - Only show for main app */}
       {currentRoute === 'app' && (
-        <LatestActivityDrawer
-          isOpen={isActivityDrawerOpen}
-          onClose={() => setIsActivityDrawerOpen(false)}
+        <LatestActivityModal
+          isOpen={isLatestActivityModalOpen}
+          onClose={() => setIsLatestActivityModalOpen(false)}
         />
       )}
 
-      {/* Profile Drawer - Only show for main app */}
+      {/* Profile Modal - Only show for main app */}
       {currentRoute === 'app' && (
-        <ProfileDrawer
-          isOpen={isProfileDrawerOpen}
-          onClose={() => setIsProfileDrawerOpen(false)}
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
         />
       )}
     </div>

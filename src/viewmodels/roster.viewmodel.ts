@@ -5,12 +5,12 @@ import useSWR from 'swr';
 import { mutate } from 'swr';
 import { SupabaseService } from '../services/supabaseService';
 import { fetcher, createKey } from '../lib/swr';
-import type { RosterPick, Contestant, RosterSlot, League } from '../models';
+import type { RosterPickWithContestant, Contestant, RosterSlot, League } from '../models';
 
 export const useRosterViewModel = (leagueId: string | null, userId: string | null) => {
   // Fetch roster data using SWR
   const rosterKey = createKey('roster', userId, leagueId);
-  const { data: picks, error: rosterError, isLoading: isLoadingRoster } = useSWR<RosterPick[]>(
+  const { data: picks, error: rosterError, isLoading: isLoadingRoster } = useSWR<RosterPickWithContestant[]>(
     rosterKey,
     fetcher
   );
@@ -41,6 +41,8 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
 
   // Use a stable representation of picks for dependency checking
   const picksKey = picks?.map(p => `${p.id}:${p.contestant?.id || 'null'}`).sort().join(',') || '';
+  // Include the user's total points so we refresh per-pick points when scoring events change
+  const pickPointsTrigger = `${picksKey}:${totalPoints}`;
 
   useEffect(() => {
     if (!userId || !leagueId || !picks || picks.length === 0) {
@@ -70,7 +72,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     };
 
     fetchPickPoints();
-  }, [userId, leagueId, picksKey]);
+  }, [userId, leagueId, pickPointsTrigger]);
 
   // Transform picks into roster slots
   const roster = useMemo<RosterSlot[]>(() => {
@@ -84,7 +86,9 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     if (picks && picks.length > 0) {
       // Separate final3 and boot picks
       const final3Picks = picks.filter(p => p.pickType === 'final3');
-      const bootPicks = picks.filter(p => p.pickType === 'boot');
+      const bootPicks = picks
+        .filter(p => p.pickType === 'boot' && p.contestant)
+        .sort((a, b) => (b.weekNumber ?? 0) - (a.weekNumber ?? 0));
       
       // Fill final3 slots (up to 3)
       final3Picks.forEach((pick, index) => {
@@ -92,14 +96,17 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
           rosterSlots[index].contestant = pick.contestant;
           rosterSlots[index].points = pickPointsMap[pick.id] || 0;
           rosterSlots[index].pickId = pick.id;
+          rosterSlots[index].weekNumber = pick.weekNumber;
         }
       });
       
       // Fill boot slot (only one)
-      if (bootPicks.length > 0 && bootPicks[0].contestant) {
-        rosterSlots[3].contestant = bootPicks[0].contestant;
-        rosterSlots[3].points = pickPointsMap[bootPicks[0].id] || 0;
-        rosterSlots[3].pickId = bootPicks[0].id;
+      if (bootPicks.length > 0) {
+        const latestBootPick = bootPicks[0];
+        rosterSlots[3].contestant = latestBootPick.contestant;
+        rosterSlots[3].points = pickPointsMap[latestBootPick.id] || 0;
+        rosterSlots[3].pickId = latestBootPick.id;
+        rosterSlots[3].weekNumber = latestBootPick.weekNumber;
       }
     }
 
@@ -128,16 +135,24 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
   const addContestantToRoster = async (
     contestantId: string,
     pickType: 'final3' | 'boot',
-    slotIndex?: number
+    slotIndex?: number,
+    weekNumber?: number
   ): Promise<boolean> => {
     if (!userId || !leagueId) {
       return false;
     }
 
     try {
-      // For boot picks, remove existing boot pick first (only one boot slot allowed)
+      // For boot picks, ensure we have a week number and remove any existing pick for that week
       if (pickType === 'boot') {
-        const existingBootPick = picks?.find(p => p.pickType === 'boot');
+        if (weekNumber === undefined) {
+          console.error('Missing week number when adding boot pick');
+          return false;
+        }
+
+        const existingBootPick = picks?.find(
+          p => p.pickType === 'boot' && (p.weekNumber ?? 0) === weekNumber
+        );
         if (existingBootPick) {
           await SupabaseService.removeRosterPick(existingBootPick.id);
         }
@@ -151,7 +166,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
         }
       }
 
-      const pick = await SupabaseService.addRosterPick(userId, leagueId, contestantId, pickType);
+      const pick = await SupabaseService.addRosterPick(userId, leagueId, contestantId, pickType, weekNumber);
 
       if (pick) {
         // Invalidate and revalidate cache
@@ -188,7 +203,12 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
       const slot = roster[slotIndex];
       
       // Add new pick
-      const success = await addContestantToRoster(contestantId, slot.type);
+      const success = await addContestantToRoster(
+        contestantId,
+        slot.type,
+        slotIndex,
+        slot.type === 'boot' ? slot.weekNumber : undefined
+      );
       
       return success;
     } catch (err) {
@@ -199,6 +219,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
 
   return {
     roster,
+    picks,
     availableContestants,
     totalPoints,
     isLoading,

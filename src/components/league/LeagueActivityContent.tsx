@@ -157,7 +157,7 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     .sort((a, b) => b - a);
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 flex flex-col gap-4">
       {weeks.map(week => {
         const weekActivities = activitiesByWeek[week];
         
@@ -172,7 +172,8 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
 
         return (
           <div key={week} className="">
-            <h3 className="text-lg font-semibold text-white mb-4">Week {week}</h3>
+            <h3 className="text-lg font-semibold text-white mb-8">Week {week}</h3>
+            <div className="h4"></div>
             <div className="space-y-3">
               {Object.entries(byUser).map(([userId, activities]) => {
                 const totalPoints = activities.reduce((sum, a) => sum + a.points, 0);

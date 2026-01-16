@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import BaseModal from './BaseModal';
 import { Button } from '../ui/button';
 
 interface ConfirmationModalProps {
@@ -27,68 +27,42 @@ export default function ConfirmationModal({
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
-    onConfirm();
-  };
+  const footer = (
+    <div className="flex gap-3">
+      <Button
+        onClick={onClose}
+        variant="outline"
+        disabled={isLoading}
+        className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
+      >
+        {cancelText}
+      </Button>
+      <Button
+        onClick={onConfirm}
+        disabled={isLoading}
+        className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+        style={{
+          ...confirmButtonStyle,
+          backgroundColor: confirmButtonStyle?.backgroundColor ?? '#BFFF0B',
+          color: confirmButtonStyle?.color ?? '#0f172a',
+        }}
+      >
+        {isLoading ? 'Processing...' : confirmText}
+      </Button>
+    </div>
+  );
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
-      <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div
-          className="bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 lg:p-8 border-b border-slate-800">
-            <h2 className="text-xl font-semibold text-white">{title}</h2>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-              disabled={isLoading}
-            >
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-            <p className="text-slate-300 text-base leading-relaxed">{message}</p>
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 lg:p-8 border-t border-slate-800">
-            <div className="flex gap-3">
-              <Button
-                onClick={onClose}
-                variant="outline"
-                disabled={isLoading}
-                className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-              >
-                {cancelText}
-              </Button>
-              <Button
-                onClick={handleConfirm}
-                disabled={isLoading}
-                className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                style={{ 
-                    backgroundColor: '#BFFF0B',
-                    color: '#0f172a'
-                }}
-              >
-                {isLoading ? 'Processing...' : confirmText}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      bodyClassName="p-6 lg:p-8"
+      footer={footer}
+      sizeClassName="lg:w-full lg:max-w-md"
+    >
+      <p className="text-slate-300 text-base leading-relaxed">{message}</p>
+    </BaseModal>
   );
 }
 

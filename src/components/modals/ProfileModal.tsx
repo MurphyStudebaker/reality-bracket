@@ -10,12 +10,12 @@ import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import type { League } from '../../data/mockData';
 
-interface ProfileDrawerProps {
+interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
+export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const auth = useAuthViewModel();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
@@ -193,12 +193,12 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
       {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
       <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div 
-          className="bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none"
+        <div
+          className="modal-shell bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 lg:p-8 border-b border-slate-800">
+          <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
             <div>
               <h2 className="text-xl">{auth.isAuthenticated ? 'Profile Settings' : 'Come On In, Guys'}</h2>
               <p className="text-sm text-slate-400 mt-1">{auth.isAuthenticated ? 'Manage your profile and settings' : ''}</p>

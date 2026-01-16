@@ -44,7 +44,12 @@ export interface RosterPick {
   leagueId: string;
   contestantId: string;
   pickType: 'final3' | 'boot';
+  weekNumber?: number;
   pickedAt: string;
+}
+
+export interface RosterPickWithContestant extends RosterPick {
+  contestant: Contestant | null;
 }
 
 export interface Season {
@@ -93,4 +98,5 @@ export interface RosterSlot {
   contestant: Contestant | null;
   points?: number;
   pickId?: string;
+  weekNumber?: number;
 }

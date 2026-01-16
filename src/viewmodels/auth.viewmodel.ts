@@ -1,8 +1,10 @@
 // ViewModel for Authentication
 
 import { useState, useEffect } from 'react';
+import { mutate } from 'swr';
 import { SupabaseService } from '../services/supabaseService';
 import type { User } from '../models';
+import { createKey } from '../lib/swr';
 
 export const useAuthViewModel = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -12,6 +14,19 @@ export const useAuthViewModel = () => {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [isMagicLinkRequested, setIsMagicLinkRequested] = useState(false);
 
+  const refreshAuthCache = (userId?: string | null) => {
+    const userKey = createKey('current-user');
+    if (userKey) {
+      mutate(userKey);
+    }
+    if (userId) {
+      const leaguesKey = createKey('ui-leagues', userId);
+      if (leaguesKey) {
+        mutate(leaguesKey);
+      }
+    }
+  };
+
   // Check if user is authenticated
   const checkAuth = async () => {
     try {
@@ -19,10 +34,12 @@ export const useAuthViewModel = () => {
       setError(null);
       const currentUser = await SupabaseService.getCurrentUser();
       setUser(currentUser);
+      refreshAuthCache(currentUser?.id);
     } catch (err: any) {
       console.error('Error checking auth:', err);
       setError(err?.message || 'Failed to authenticate');
       setUser(null);
+      refreshAuthCache(null);
     } finally {
       setIsLoading(false);
     }
@@ -41,6 +58,7 @@ export const useAuthViewModel = () => {
       
       if (newUser) {
         setUser(newUser);
+        refreshAuthCache(newUser.id);
         return true;
       }
       return false;
@@ -62,6 +80,7 @@ export const useAuthViewModel = () => {
       
       if (loggedInUser) {
         setUser(loggedInUser);
+        refreshAuthCache(loggedInUser.id);
         return true;
       }
       return false;
@@ -81,6 +100,7 @@ export const useAuthViewModel = () => {
       setIsLoading(true);
       await SupabaseService.signOut();
       setUser(null);
+      refreshAuthCache(null);
       return true;
     } catch (err: any) {
       console.error('Error signing out:', err);
@@ -121,6 +141,7 @@ export const useAuthViewModel = () => {
       // Refresh user after password update
       const currentUser = await SupabaseService.getCurrentUser();
       setUser(currentUser);
+      refreshAuthCache(currentUser?.id);
       return true;
     } catch (err: any) {
       console.error('Error updating password:', err);
@@ -221,6 +242,7 @@ export const useAuthViewModel = () => {
           if (mounted) {
             setUser(userFromSession);
             setIsLoading(false);
+            refreshAuthCache(userFromSession.id);
           }
         } else {
           // No session found
@@ -228,6 +250,7 @@ export const useAuthViewModel = () => {
           if (mounted) {
             setUser(null);
             setIsLoading(false);
+            refreshAuthCache(null);
           }
         }
       } catch (err) {
@@ -235,6 +258,7 @@ export const useAuthViewModel = () => {
         if (mounted) {
           setUser(null);
           setIsLoading(false);
+          refreshAuthCache(null);
         }
       }
     };
@@ -264,11 +288,13 @@ export const useAuthViewModel = () => {
             if (mounted) {
               setUser(userFromSession);
               setIsLoading(false);
+            refreshAuthCache(userFromSession.id);
             }
           } else {
             if (mounted) {
               setUser(null);
               setIsLoading(false);
+            refreshAuthCache(null);
             }
           }
         } else if (event === 'SIGNED_OUT') {
@@ -278,6 +304,7 @@ export const useAuthViewModel = () => {
             setIsPasswordResetRequested(false);
             setIsMagicLinkRequested(false);
             setIsLoading(false);
+          refreshAuthCache(null);
           }
         } else if (event === 'PASSWORD_RECOVERY') {
           if (mounted) {
@@ -289,6 +316,7 @@ export const useAuthViewModel = () => {
             const currentUser = await SupabaseService.getCurrentUser();
             if (mounted) {
               setUser(currentUser);
+              refreshAuthCache(currentUser?.id);
             }
           } catch (err) {
             console.error('Error getting user after update:', err);

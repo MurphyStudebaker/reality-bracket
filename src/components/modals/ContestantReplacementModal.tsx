@@ -1,10 +1,10 @@
 import React from 'react';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { Contestant, RosterSlot } from '../../models';
 
-interface ContestantReplacementDrawerProps {
+interface ContestantReplacementModalProps {
   isOpen: boolean;
   onClose: () => void;
   contestants: Contestant[];
@@ -17,7 +17,7 @@ interface ContestantReplacementDrawerProps {
   rosterPicksByPosition: Record<number, string[]>; // Map of position (1-3) to contestant IDs already drafted for that position
 }
 
-export default function ContestantReplacementDrawer({
+export default function ContestantReplacementModal({
   isOpen,
   onClose,
   contestants,
@@ -119,12 +119,12 @@ export default function ContestantReplacementDrawer({
 
       {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
       <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div 
-          className="bg-slate-900 border-slate-800 flex flex-col max-h-[85vh] lg:max-h-[700px] w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none"
+        <div
+          className="modal-shell bg-slate-900 border-slate-800 flex flex-col w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-slate-800">
+          <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
             <div>
               <h2 className="text-xl">{getHeading()}</h2>
               {currentContestant && (

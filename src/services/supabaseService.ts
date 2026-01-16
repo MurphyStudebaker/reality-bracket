@@ -808,6 +808,7 @@ export class SupabaseService {
         leagueId: pick.league_id,
         contestantId: pick.contestant_id,
         pickType: pick.pick_type as 'final3' | 'boot',
+        weekNumber: pick.week_number ?? undefined,
         pickedAt: pick.picked_at,
         contestant: pick.contestants ? {
           id: pick.contestants.id,
@@ -820,7 +821,7 @@ export class SupabaseService {
           eliminatedWeek: pick.contestants.eliminated_week || undefined,
           seasonId: pick.contestants.season_id,
         } : null as any,
-      })).filter((pick: any) => pick.contestant !== null);
+        })).filter((pick: any) => pick.contestant !== null);
     } catch (error) {
       console.error('Error in getRosterByUserAndLeague:', error);
       return [];
@@ -831,7 +832,8 @@ export class SupabaseService {
     userId: string,
     leagueId: string,
     contestantId: string,
-    pickType: 'final3' | 'boot'
+    pickType: 'final3' | 'boot',
+    weekNumber?: number
   ): Promise<RosterPick | null> {
     try {
       const { data, error } = await supabase
@@ -841,6 +843,7 @@ export class SupabaseService {
           league_id: leagueId,
           contestant_id: contestantId,
           pick_type: pickType,
+          week_number: weekNumber ?? null,
         })
         .select()
         .single();
@@ -877,6 +880,7 @@ export class SupabaseService {
         leagueId: data.league_id,
         contestantId: data.contestant_id,
         pickType: data.pick_type as 'final3' | 'boot',
+        weekNumber: data.week_number ?? undefined,
         pickedAt: data.picked_at,
       };
     } catch (error) {
@@ -1869,7 +1873,7 @@ export class SupabaseService {
       // First get all roster picks
       const { data: picks, error: picksError } = await supabase
         .from('roster_picks')
-        .select('id, user_id, contestant_id, pick_type')
+        .select('id, user_id, contestant_id, pick_type, week_number')
         .eq('league_id', leagueId);
 
       if (picksError) {
@@ -1908,6 +1912,7 @@ export class SupabaseService {
         userId: pick.user_id,
         contestantId: pick.contestant_id,
         pickType: pick.pick_type as 'final3' | 'boot',
+        weekNumber: pick.week_number ?? undefined,
         displayName: displayNameMap[pick.user_id] || 'Unknown',
       }));
     } catch (error) {
@@ -1981,6 +1986,29 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error in getActivityEventsForSeason:', error);
       return [];
+    }
+  }
+
+  static async getLatestEliminationWeek(seasonId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('activity_events')
+        .select('week_number')
+        .eq('season_id', seasonId)
+        .in('activity_type', ['eliminated', 'medical_evacuated'])
+        .order('week_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching latest elimination week:', error);
+        return 0;
+      }
+
+      return (data?.week_number ?? 0) as number;
+    } catch (error) {
+      console.error('Error in getLatestEliminationWeek:', error);
+      return 0;
     }
   }
 }
