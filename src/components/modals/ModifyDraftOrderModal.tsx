@@ -163,8 +163,11 @@ export default function ModifyDraftOrderModal({
       <Button
         onClick={handleSave}
         disabled={isSaving || isLoading || members.length === 0}
-        className="flex-1 font-semibold"
-        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+        className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+        style={{
+          backgroundColor: '#BFFF0B',
+          color: '#0f172a',
+        }}
       >
         {isSaving ? (
           'Saving...'
@@ -222,11 +225,6 @@ export default function ModifyDraftOrderModal({
                       {displayName(member)}
                     </span>
                   </div>
-                  {member.displayName && member.displayName !== member.username && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      @{member.username}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>

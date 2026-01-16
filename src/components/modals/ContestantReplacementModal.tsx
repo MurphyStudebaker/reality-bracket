@@ -2,6 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import BaseModal from './BaseModal';
 import type { Contestant, RosterSlot } from '../../models';
 
 interface ContestantReplacementModalProps {
@@ -28,7 +29,7 @@ export default function ContestantReplacementModal({
   roster,
   leagueId,
   rosterPicksByPosition,
-}: ContestantReplacementDrawerProps) {
+}: ContestantReplacementModalProps) {
   const [selectedContestant, setSelectedContestant] = React.useState<Contestant | null>(null);
 
   // Clear selected contestant when modal closes
@@ -109,183 +110,169 @@ export default function ContestantReplacementModal({
     setSelectedContestant(null);
   };
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
-      <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div
-          className="modal-shell bg-slate-900 border-slate-800 flex flex-col w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
-            <div>
-              <h2 className="text-xl">{getHeading()}</h2>
-              {currentContestant && (
-                <p className="text-sm text-slate-400 mt-1">
-                  Replacing {currentContestant.name}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {/* Available Contestants */}
-            {availableContestants.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm text-slate-400 mb-3">AVAILABLE CONTESTANTS</h3>
-                <div className="space-y-2">
-                  {availableContestants.map((contestant) => (
-                    <button
-                      key={contestant.id}
-                      onClick={() => handleSelect(contestant)}
-                      className={`w-full bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all border-2 ${
-                        selectedContestant?.id === contestant.id
-                          ? 'border-[#BFFF0B]'
-                          : 'border-transparent hover:border-slate-700'
-                      }`}
-                      style={selectedContestant?.id === contestant.id ? { backgroundColor: 'rgba(34, 197, 94, 0.15)' } : undefined}
-                    >
-                      <div className="flex items-center gap-4">
-                        {/* Profile Image */}
-                        <Avatar
-                          className="w-16 h-16 border-2 border-[#BFFF0B] flex-shrink-0"
-                        >
-                          <AvatarImage
-                            src={contestant.imageUrl}
-                            alt={contestant.name}
-                            className="object-cover"
-                          />
-                          <AvatarFallback>
-                            {contestant.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        {/* Info */}
-                        <div className="flex-1 text-left">
-                          <p className="mb-1">{contestant.name}</p>
-                          <p className="text-sm text-slate-400">
-                            {contestant.age} • {contestant.occupation}
-                          </p>
-                          <p className="text-xs text-slate-500">{contestant.hometown}</p>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="px-3 py-1 rounded-full text-xs flex-shrink-0"
-                             style={{ backgroundColor: 'rgba(191, 255, 11, 0.2)', color: '#BFFF0B' }}>
-                          Active
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Unavailable Contestants */}
-            {unavailableContestants.length > 0 && (
-              <div>
-                <h3 className="text-sm text-slate-400 mb-3">UNAVAILABLE CONTESTANTS</h3>
-                <div className="space-y-2">
-                  {unavailableContestants.map((contestant) => (
-                    <div
-                      key={contestant.id}
-                      className="w-full bg-slate-800/30 rounded-lg p-4 opacity-50 cursor-not-allowed"
-                    >
-                      <div className="flex items-center gap-4">
-                        {/* Profile Image - Grayed Out */}
-                        <Avatar
-                          className="w-16 h-16 border-2 border-slate-700 flex-shrink-0 grayscale"
-                        >
-                          <AvatarImage
-                            src={contestant.imageUrl}
-                            alt={contestant.name}
-                            className="grayscale object-cover"
-                          />
-                          <AvatarFallback className="grayscale">
-                            {contestant.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        {/* Info */}
-                        <div className="flex-1 text-left">
-                          <p className="text-slate-500 mb-1">{contestant.name}</p>
-                          <p className="text-sm text-slate-600">
-                            {contestant.age} • {contestant.occupation}
-                          </p>
-                          <p className="text-xs text-slate-700">{contestant.hometown}</p>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="px-3 py-1 rounded-full text-xs bg-slate-700 text-slate-500 flex-shrink-0">
-                          {contestant.status === 'eliminated' && 'Eliminated'}
-                          {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
-                          {contestant.status === 'final3' && 'Final 3'}
-                          {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'Already Selected'}
-                          {contestant.status === 'active' && 
-                           !alreadySelectedContestantIds.includes(contestant.id) && 
-                           positionDraftedContestantIds.includes(contestant.id) && 
-                           'Already Drafted'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {availableContestants.length === 0 && (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-slate-500">No available contestants</p>
-              </div>
-            )}
-          </div>
-
-          {/* Footer with Confirm/Cancel buttons - only show when contestant is selected */}
-          {selectedContestant && (
-            <div className="p-4 lg:p-6 border-t border-slate-800">
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleCancel}
-                  variant="outline"
-                  className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirm}
-                  className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                  style={{ 
-                      backgroundColor: '#BFFF0B',
-                      color: '#0f172a'
-                  }}
-                >
-                  Confirm Draft
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+  const header = (
+    <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
+      <div>
+        <h2 className="text-xl">{getHeading()}</h2>
+        {currentContestant && (
+          <p className="text-sm text-slate-400 mt-1">
+            Replacing {currentContestant.name}
+          </p>
+        )}
       </div>
-    </>
+      <button
+        onClick={onClose}
+        className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  );
+
+  const footer = selectedContestant ? (
+    <div className="flex gap-3">
+      <Button
+        onClick={handleCancel}
+        variant="outline"
+        className="flex-1 border-slate-700 text-slate-300 hover:bg-slate-800"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleConfirm}
+        className="flex-1 px-4 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+        style={{
+          backgroundColor: '#BFFF0B',
+          color: '#0f172a'
+        }}
+      >
+        Confirm Draft
+      </Button>
+    </div>
+  ) : undefined;
+
+  return (
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      header={header}
+      bodyClassName="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6"
+      sizeClassName="lg:w-[600px]"
+      footer={footer}
+    >
+      {availableContestants.length > 0 && (
+        <div>
+          <h3 className="text-sm text-slate-400 mb-3">AVAILABLE CONTESTANTS</h3>
+          <div className="space-y-2">
+            {availableContestants.map((contestant) => (
+              <button
+                key={contestant.id}
+                onClick={() => handleSelect(contestant)}
+                className={`w-full bg-slate-800/50 rounded-lg p-4 hover:bg-slate-800 transition-all border-2 ${
+                  selectedContestant?.id === contestant.id
+                    ? 'border-[#BFFF0B]'
+                    : 'border-transparent hover:border-slate-700'
+                }`}
+                style={selectedContestant?.id === contestant.id ? { backgroundColor: 'rgba(34, 197, 94, 0.15)' } : undefined}
+              >
+                <div className="flex items-center gap-4">
+                  {/* Profile Image */}
+                  <Avatar
+                    className="w-16 h-16 border-2 border-[#BFFF0B] flex-shrink-0"
+                  >
+                    <AvatarImage
+                      src={contestant.imageUrl}
+                      alt={contestant.name}
+                      className="object-cover"
+                    />
+                    <AvatarFallback>
+                      {contestant.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Info */}
+                  <div className="flex-1 text-left">
+                    <p className="mb-1">{contestant.name}</p>
+                    <p className="text-sm text-slate-400">
+                      {contestant.age} • {contestant.occupation}
+                    </p>
+                    <p className="text-xs text-slate-500">{contestant.hometown}</p>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="px-3 py-1 rounded-full text-xs flex-shrink-0"
+                       style={{ backgroundColor: 'rgba(191, 255, 11, 0.2)', color: '#BFFF0B' }}>
+                    Active
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {unavailableContestants.length > 0 && (
+        <div>
+          <h3 className="text-sm text-slate-400 mb-3">UNAVAILABLE CONTESTANTS</h3>
+          <div className="space-y-2">
+            {unavailableContestants.map((contestant) => (
+              <div
+                key={contestant.id}
+                className="w-full bg-slate-800/30 rounded-lg p-4 opacity-50 cursor-not-allowed"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Profile Image - Grayed Out */}
+                  <Avatar
+                    className="w-16 h-16 border-2 border-slate-700 flex-shrink-0 grayscale"
+                  >
+                    <AvatarImage
+                      src={contestant.imageUrl}
+                      alt={contestant.name}
+                      className="grayscale object-cover"
+                    />
+                    <AvatarFallback className="grayscale">
+                      {contestant.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Info */}
+                  <div className="flex-1 text-left">
+                    <p className="text-slate-500 mb-1">{contestant.name}</p>
+                    <p className="text-sm text-slate-600">
+                      {contestant.age} • {contestant.occupation}
+                    </p>
+                    <p className="text-xs text-slate-700">{contestant.hometown}</p>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="px-3 py-1 rounded-full text-xs bg-slate-700 text-slate-500 flex-shrink-0">
+                    {contestant.status === 'eliminated' && 'Eliminated'}
+                    {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
+                    {contestant.status === 'final3' && 'Final 3'}
+                    {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'Already Selected'}
+                    {contestant.status === 'active' && 
+                     !alreadySelectedContestantIds.includes(contestant.id) && 
+                     positionDraftedContestantIds.includes(contestant.id) && 
+                     'Already Drafted'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {availableContestants.length === 0 && (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-slate-500">No available contestants</p>
+        </div>
+      )}
+    </BaseModal>
   );
 }
