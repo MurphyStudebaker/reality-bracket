@@ -8,6 +8,7 @@ import { fetcher, createKey } from '../../lib/swr';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
+import BaseModal from './BaseModal';
 import type { League } from '../../data/mockData';
 
 interface ProfileModalProps {
@@ -395,7 +396,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         </div>
                         <div className="h-2"></div>
                         <div className="flex justify-end">
-                          <button
+                          {/* <button
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
@@ -405,7 +406,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             className="text-sm mb-2 text-slate-400 hover:text-slate-300 underline font-medium"
                           >
                             Forgot Password?
-                          </button>
+                          </button> */}
                         </div>
                         </div>
                         <Button
