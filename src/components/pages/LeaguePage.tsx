@@ -5,7 +5,7 @@ import LeagueSelector from '../common/LeagueSelector';
 import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
-import UserRosterDrawer from '../drawers/UserRosterDrawer';
+import UserRosterModal from '../modals/UserRosterModal';
 import { Progress } from '../ui/progress';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
@@ -29,6 +29,15 @@ interface DraftOrderMember {
   displayName: string | null;
   draftOrder: number | null;
   joinedAt: string;
+}
+
+interface LeagueActivityEvent {
+  id: string;
+  contestantId: string;
+  weekNumber: number;
+  activityType: string;
+  createdAt: string;
+  contestantName: string;
 }
 
 interface LeaguePageProps {
@@ -181,6 +190,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     seasonIdKey,
     fetcher
   );
+
+  const leagueActivityEventsKey = createKey('league-activity-events', seasonId);
+  const { data: leagueActivityEvents = [] } = useSWR<LeagueActivityEvent[]>(
+    leagueActivityEventsKey,
+    fetcher
+  );
+  const hasSeasonActivityEvents = leagueActivityEvents.length > 0;
 
   // Check draft status: not_started, in_progress, or completed
   const draftStatusKey = createKey('draft-status', selectedLeague?.id);
@@ -459,7 +475,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             </div>
           </div>
         </div>
-      ) : (
+      ) : hasSeasonActivityEvents ? null : (
         <div className="mb-6 bg-gradient-to-br from-green-900/30 to-green-800/20 rounded-xl border-2 border-green-600/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -909,8 +925,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         }}
       />
 
-      {/* User Roster Drawer */}
-      <UserRosterDrawer
+      {/* User Roster Modal */}
+      <UserRosterModal
         isOpen={selectedUserForRoster !== null}
         onClose={() => setSelectedUserForRoster(null)}
         userId={selectedUserForRoster?.userId || null}

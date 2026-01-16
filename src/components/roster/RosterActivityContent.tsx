@@ -1,8 +1,9 @@
+import React from 'react';
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import type { RosterSlot } from '../../models';
+import type { Contestant, RosterPickWithContestant, RosterSlot } from '../../models';
 
 interface ActivityEvent {
   id: string;
@@ -16,29 +17,54 @@ interface ActivityEvent {
 
 interface RosterActivityContentProps {
   roster: RosterSlot[];
+  picks: RosterPickWithContestant[];
   seasonId: string | null;
   userId: string | null;
   leagueId: string | null;
 }
 
-export default function RosterActivityContent({ roster, seasonId, userId, leagueId }: RosterActivityContentProps) {
-  // Get all contestant IDs from roster
-  const contestantIds = useMemo(() => {
-    return roster
-      .filter(slot => slot.contestant !== null)
-      .map(slot => slot.contestant!.id);
-  }, [roster]);
+export default function RosterActivityContent({
+  roster,
+  picks,
+  seasonId,
+  userId,
+  leagueId,
+}: RosterActivityContentProps) {
+  const contestantMetadata = useMemo<
+    Record<string, { contestant: Contestant; pickType: 'final3' | 'boot'; weekNumber?: number }>
+  >(() => {
+    const map: Record<string, { contestant: Contestant; pickType: 'final3' | 'boot'; weekNumber?: number }> = {};
 
-  // Create a map of contestant ID to pick type
-  const contestantPickTypeMap = useMemo(() => {
-    const map: Record<string, 'final3' | 'boot'> = {};
-    roster.forEach(slot => {
-      if (slot.contestant) {
-        map[slot.contestant.id] = slot.type;
+    picks.forEach((pick) => {
+      if (pick.contestant) {
+        map[pick.contestant.id] = {
+          contestant: pick.contestant,
+          pickType: pick.pickType,
+          weekNumber: pick.weekNumber,
+        };
       }
     });
+
+    roster.forEach((slot) => {
+      if (slot.contestant && !map[slot.contestant.id]) {
+        map[slot.contestant.id] = {
+          contestant: slot.contestant,
+          pickType: slot.type,
+          weekNumber: slot.weekNumber,
+        };
+      }
+    });
+
     return map;
-  }, [roster]);
+  }, [picks, roster]);
+  const contestantIds = useMemo(() => Object.keys(contestantMetadata), [contestantMetadata]);
+  const contestantPickTypeMap = useMemo(() => {
+    const map: Record<string, 'final3' | 'boot'> = {};
+    Object.keys(contestantMetadata).forEach((contestantId) => {
+      map[contestantId] = contestantMetadata[contestantId].pickType;
+    });
+    return map;
+  }, [contestantMetadata]);
 
   // Fetch activity events using SWR
   const activityKey = createKey(
@@ -86,7 +112,7 @@ export default function RosterActivityContent({ roster, seasonId, userId, league
   }, [rawEvents, contestantPickTypeMap]);
 
   // Group events by contestant
-  const eventsByContestant = useMemo(() => {
+  const eventsByContestant = useMemo<Record<string, ActivityEvent[]>>(() => {
     const grouped: Record<string, ActivityEvent[]> = {};
     activityEvents.forEach(event => {
       if (!grouped[event.contestantId]) {
@@ -128,11 +154,14 @@ export default function RosterActivityContent({ roster, seasonId, userId, league
         </div>
       ) : (
         <div className="space-y-3">
-          {Object.entries(eventsByContestant).map(([contestantId, events]) => {
-            const contestant = roster.find(slot => slot.contestant?.id === contestantId)?.contestant;
-            const pickType = contestantPickTypeMap[contestantId];
-            
-            if (!contestant) return null;
+          {Object.keys(eventsByContestant).map((contestantId) => {
+            const events = eventsByContestant[contestantId];
+            const metadata = contestantMetadata[contestantId];
+            const contestant = metadata?.contestant;
+            const pickType = metadata?.pickType;
+            const weekNumber = metadata?.weekNumber;
+
+            if (!contestant || !pickType) return null;
 
             // Sort events by week (newest first)
             const sortedEvents = [...events].sort((a, b) => {
@@ -168,7 +197,9 @@ export default function RosterActivityContent({ roster, seasonId, userId, league
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold text-white truncate">{contestant.name}</h4>
                     <p className="text-xs text-slate-400">
-                      {pickType === 'boot' ? 'Next Boot' : 'Final 3'}
+                      {pickType === 'boot'
+                        ? `Next Boot${weekNumber ? ` • Week ${weekNumber}` : ''}`
+                        : 'Final 3'}
                     </p>
                   </div>
                 </div>

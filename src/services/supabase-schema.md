@@ -93,10 +93,12 @@ CREATE TABLE roster_picks (
   league_id UUID REFERENCES leagues(id) ON DELETE CASCADE,
   contestant_id UUID REFERENCES contestants(id) ON DELETE CASCADE,
   pick_type TEXT CHECK (pick_type IN ('final3', 'boot')),
+  week_number INTEGER,
   picked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, league_id, contestant_id)
 );
 ```
+Each boot pick stores the `week_number` it is predicting so the app can award points on a weekly basis while final-3 picks keep this column `NULL`.
 
 ### contestant_scores
 Stores weekly scoring events for contestants.
@@ -140,6 +142,7 @@ CREATE INDEX idx_league_members_league_id ON league_members(league_id);
 CREATE INDEX idx_roster_picks_user_league ON roster_picks(user_id, league_id);
 CREATE INDEX idx_contestant_scores_contestant ON contestant_scores(contestant_id);
 CREATE INDEX idx_activity_items_league ON activity_items(league_id, created_at DESC);
+CREATE UNIQUE INDEX idx_roster_picks_boot_week ON roster_picks(user_id, league_id, week_number) WHERE pick_type = 'boot' AND week_number IS NOT NULL;
 ```
 
 ## Row Level Security (RLS)
