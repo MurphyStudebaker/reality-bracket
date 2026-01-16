@@ -8,6 +8,7 @@ import { fetcher, createKey } from '../../lib/swr';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
+import BaseModal from './BaseModal';
 import type { League } from '../../data/mockData';
 
 interface ProfileModalProps {
@@ -183,37 +184,27 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   };
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
+  const headerTitle = auth.isAuthenticated ? 'Profile Settings' : 'Come On In, Guys';
+  const headerSubtitle = auth.isAuthenticated ? 'Manage your profile and settings' : '';
+  const header = (
+    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
+      <div>
+        <h2 className="text-xl">{headerTitle}</h2>
+        {headerSubtitle && (
+          <p className="text-sm text-slate-400 mt-1">{headerSubtitle}</p>
+        )}
+      </div>
+      <button
         onClick={onClose}
-      />
+        className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  );
 
-      {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
-      <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div
-          className="modal-shell bg-slate-900 rounded-t-2xl lg:rounded-2xl border-t lg:border border-slate-800 w-full lg:w-full lg:max-w-md pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
-            <div>
-              <h2 className="text-xl">{auth.isAuthenticated ? 'Profile Settings' : 'Come On In, Guys'}</h2>
-              <p className="text-sm text-slate-400 mt-1">{auth.isAuthenticated ? 'Manage your profile and settings' : ''}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-            {auth.isLoading ? (
+  const profileBody = (
+    auth.isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-slate-400">Loading...</div>
               </div>
@@ -655,10 +646,17 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   </div>
                 </div>
               </>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
+    )
+  );
+
+  return (
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      header={header}
+      sizeClassName="lg:w-full lg:max-w-md"
+      bodyClassName="flex-1 overflow-y-auto p-6 lg:p-8"
+      children={profileBody}
+    />
   );
 }

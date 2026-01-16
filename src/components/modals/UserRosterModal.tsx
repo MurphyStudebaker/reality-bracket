@@ -1,9 +1,10 @@
-import { X, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { useMemo, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { SupabaseService } from '../../services/supabaseService';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import BaseModal from './BaseModal';
 import type { RosterPick, RosterSlot } from '../../models';
 
 interface UserRosterModalProps {
@@ -121,32 +122,13 @@ export default function UserRosterModal({
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Mobile: Bottom Drawer, Desktop: Center Panel */}
-      <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-50 pointer-events-none">
-        <div
-          className="modal-shell bg-slate-900 border-slate-800 flex flex-col w-full lg:w-[600px] rounded-t-2xl lg:rounded-2xl border-t lg:border pointer-events-auto animate-slide-in-bottom lg:animate-none overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
-            <h2 className="text-xl">{username}'s Roster</h2>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`${username}'s Roster`}
+      sizeClassName="lg:w-[600px]"
+      bodyClassName="flex-1 overflow-y-auto p-4 lg:p-6"
+    >
             {isLoadingRoster ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-slate-400">Loading roster...</div>
@@ -310,10 +292,7 @@ export default function UserRosterModal({
                 </div>
               </>
             )}
-          </div>
-        </div>
-      </div>
-    </>
+    </BaseModal>
   );
 }
 
