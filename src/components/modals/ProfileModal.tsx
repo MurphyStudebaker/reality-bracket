@@ -386,7 +386,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         </div>
                         <div className="h-2"></div>
                         <div className="flex justify-end">
-                          <button
+                          {/* <button
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
@@ -396,7 +396,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             className="text-sm mb-2 text-slate-400 hover:text-slate-300 underline font-medium"
                           >
                             Forgot Password?
-                          </button>
+                          </button> */}
                         </div>
                         </div>
                         <Button
@@ -631,7 +631,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     </div>
                   </a>
                   <a
-                    href="mailto:support@realitybracket.com?subject=Reality%20Bracket%20Support"
+                    href="https://www.instagram.com/murphy_builds/"
                     className="block mt-2 mb-2 p-2 rounded-lg hover:bg-slate-800 transition-all"
                   >
                     <div className="flex items-center gap-3">
@@ -639,7 +639,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         <Instagram className="w-5 h-5" style={{ color: '#BFFF0B' }} />
                       </div>
                       <div className="flex-1">
-                        <p className="mb-1">@murphystudebaker</p>
+                        <p className="mb-1">@murphy_builds</p>
                       </div>
                     </div>
                   </a>
