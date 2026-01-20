@@ -35,6 +35,8 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+const MAX_LEAGUE_MEMBERS = 12;
+
 export class SupabaseService {
   // Get the Supabase client instance
   static getClient() {
@@ -626,6 +628,27 @@ export class SupabaseService {
 
       if (existingMember) {
         throw new Error('You are already a member of this league');
+      }
+
+      // Check member cap
+      const { count: memberCount, error: memberCountError } = await supabase
+        .from('league_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('league_id', league.id);
+
+      if (memberCountError) {
+        console.error('Error counting league members:', memberCountError);
+        throw new Error('Failed to evaluate league capacity. Please try again.');
+      }
+
+      if ((memberCount || 0) >= MAX_LEAGUE_MEMBERS) {
+        throw new Error('This league already has 12 players and cannot accept new members.');
+      }
+
+      // Prevent joining if draft has already started
+      const draftStarted = league.status === 'draft_open' || league.status === 'draft_closed' || league.status === 'completed';
+      if (draftStarted) {
+        throw new Error('The draft for this league has already started. You can only join leagues before the draft begins.');
       }
 
       // Add user as member
