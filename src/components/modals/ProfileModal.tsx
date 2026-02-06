@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import { mutate } from 'swr';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
 import { SupabaseService } from '../../services/supabaseService';
+import { getFriendlyEmailVerificationMessage } from '../../utils/emailVerification';
 import { fetcher, createKey } from '../../lib/swr';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -186,6 +187,9 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   const headerTitle = auth.isAuthenticated ? 'Profile Settings' : 'Come On In, Guys';
   const headerSubtitle = auth.isAuthenticated ? 'Manage your profile and settings' : '';
+  const authErrorMessage = auth.error
+    ? getFriendlyEmailVerificationMessage(auth.error) ?? auth.error
+    : null;
   const header = (
     <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
       <div>
@@ -216,9 +220,9 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   <div>
                     <h3 className="text-xl mb-6 font-semibold">Reset Password</h3>
                     <form onSubmit={handleUpdatePassword} className="space-y-5">
-                      {auth.error && (
+                      {authErrorMessage && (
                         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
-                          {auth.error}
+                          {authErrorMessage}
                         </div>
                       )}
                       <div>
@@ -356,9 +360,9 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       </div>
 
                       <form onSubmit={handleLogin} className="space-y-5">
-                        {auth.error && (
+                        {authErrorMessage && (
                           <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
-                            {auth.error}
+                            {authErrorMessage}
                           </div>
                         )}
                         <div className="flex flex-col gap-3">
@@ -413,11 +417,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
                   <TabsContent value="signup" className="mt-8">
                     <form onSubmit={handleSignup} className="space-y-8">
-                      {auth.error && (
-                        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
-                          {auth.error}
-                        </div>
-                      )}
+                    {authErrorMessage && (
+                      <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
+                        {authErrorMessage}
+                      </div>
+                    )}
                       <div className="flex flex-col gap-3">
                         <div>
                         <label className="text-sm text-slate-400 mb-1 block font-medium">Username</label>

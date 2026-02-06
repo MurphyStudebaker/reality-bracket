@@ -12,9 +12,15 @@ interface HomePageProps {
   isAuthenticated: boolean;
   onLeagueClick: (league: League) => void;
   onSignInClick?: () => void;
+  alertMessage?: string;
 }
 
-export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick }: HomePageProps) {
+export default function HomePage({
+  isAuthenticated,
+  onLeagueClick,
+  onSignInClick,
+  alertMessage,
+}: HomePageProps) {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const viewModel = useHomeViewModel();
@@ -43,13 +49,25 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
   // Show logged out screen if not authenticated
   if (!isAuthenticated) {
     return (
-      <LoggedOutScreen 
-        onSignInClick={() => {
-          if (onSignInClick) {
-            onSignInClick();
-          }
-        }}
-      />
+      <>
+        {alertMessage && (
+          <div className="max-w-4xl mx-auto px-4 lg:px-8 pt-6">
+            <div
+              role="alert"
+              className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-300"
+            >
+              {alertMessage}
+            </div>
+          </div>
+        )}
+        <LoggedOutScreen
+          onSignInClick={() => {
+            if (onSignInClick) {
+              onSignInClick();
+            }
+          }}
+        />
+      </>
     );
   }
 

@@ -8,6 +8,7 @@ import PasswordResetPage from './components/pages/PasswordResetPage';
 import LatestActivityModal from './components/modals/LatestActivityModal';
 import ProfileModal from './components/modals/ProfileModal';
 import { useAuthViewModel } from './viewmodels/auth.viewmodel';
+import { getFriendlyEmailVerificationMessage } from './utils/emailVerification';
 import logoImage from './assets/icon.png';
 
 type ScreenType = 'home' | 'roster' | 'league';
@@ -56,6 +57,9 @@ export default function App() {
     { id: 'roster' as ScreenType, label: 'Rosters', icon: Users },
     { id: 'league' as ScreenType, label: 'Leagues', icon: Trophy },
   ];
+
+  const emailVerificationAlertMessage =
+    !auth.isAuthenticated ? getFriendlyEmailVerificationMessage(auth.error) : null;
 
   // Keep user on home page when not authenticated
   useEffect(() => {
@@ -172,7 +176,8 @@ export default function App() {
                     setSelectedLeague(league);
                     setCurrentScreen('league');
                   }}
-                  onSignInClick={() => setIsProfileModalOpen(true)}
+                onSignInClick={() => setIsProfileModalOpen(true)}
+                alertMessage={emailVerificationAlertMessage || undefined}
                 />
               )}
               {auth.isAuthenticated && currentScreen === 'roster' && (
