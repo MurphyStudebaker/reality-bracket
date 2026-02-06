@@ -310,6 +310,112 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
 
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);
+  const hasPointTotals = standings.some((standing) => (standing.points ?? 0) > 0);
+  const shouldShowPodium = currentWeek > 0 && hasPointTotals;
+
+  const draftHowItWorksSection = (
+    <div className={shouldShowPodium ? 'mt-12' : 'mb-8'}>
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-2xl">How Drafts Work</h2>
+      </div>
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+        <div className="space-y-6">
+          <p>
+            Once you begin the draft, players will be able to select contestants for all Final 3 positions in a snake draft order. You must wait for each player to make their selection until it is your turn. The same contestant cannot be drafted in the same slot by multiple people in the league. After the draft is complete, these selections are locked for the season. 
+            <br />
+            <br />
+            Weekly while the season is active, you can draft a contestant for the next boot slot. For this position, multiple people in the league can have the same selection.
+          </p>
+        </div>
+      </div>
+
+      <div className="h-4"></div>
+
+      {/* Draft Controls - Only visible to commissioner */}
+      {isCommissioner ? (
+        <div className="mt-6 flex flex-col gap-3">
+          {/* Begin Draft Button */}
+          <button
+            onClick={handleStartDraftClick}
+            disabled={draftStatus === 'completed' || hasDraftStarted}
+            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+              draftStatus === 'completed'
+                ? 'cursor-not-allowed opacity-60'
+                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+            }`}
+            style={
+              draftStatus === 'completed'
+                ? { backgroundColor: '#475569', color: '#94a3b8' }
+                : { 
+                  borderColor: '#BFFF0B',
+                  backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                  color: '#BFFF0B'
+                }
+            }
+          >
+            {draftStatus === 'completed' ? (
+              <>
+                <Lock className="w-5 h-5" />
+                <span>Draft Completed</span>
+              </>
+            ) : hasDraftStarted ? (
+              <>
+                <Play className="w-5 h-5" />
+                <span>Draft In Progress</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5" />
+                <span>Begin Draft</span>
+              </>
+            )}
+          </button>
+
+          {/* Modify Draft Order Button */}
+          <button
+            onClick={() => {
+              if (draftStatus !== 'completed' && !hasDraftStarted) {
+                setIsDraftOrderModalOpen(true);
+              }
+            }}
+            disabled={draftStatus === 'completed' || hasDraftStarted}
+            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+              draftStatus === 'completed' || hasDraftStarted
+                ? 'cursor-not-allowed opacity-60'
+                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+            }`}
+            style={
+              draftStatus === 'completed' || hasDraftStarted
+                ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                : {
+                  borderColor: '#64748b',
+                  backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                  color: '#94a3b8'
+                }
+            }
+          >
+            <ArrowUpDown className="w-5 h-5" />
+            <span>
+              {draftStatus === 'completed'
+                ? 'Draft Order Locked'
+                : hasDraftStarted
+                ? 'Draft Order Locked'
+                : 'Modify Draft Order'
+              }
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+            <p className="text-slate-400 text-center">
+              Only the league commissioner can modify the draft order and begin the draft.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const handleCopyInviteCode = async () => {
     const inviteCode = currentLeagueData?.inviteCode || selectedLeague?.inviteCode;
@@ -494,7 +600,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       )}
 
       {/* Podium Visualization */}
-      <div className="mb-8">
+      {shouldShowPodium ? (
+        <div className="mb-8">
         <h2 className="text-2xl mb-6">Top 3</h2>
         
         {isLoadingStandings ? (
@@ -701,6 +808,9 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         )}
       </div>
+      ) : (
+        draftHowItWorksSection
+      )}
 
       {/* Full Standings */}
       <div>
@@ -768,110 +878,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         </div>
       </div>
 
-      <div className="h-12"></div>
-
-      {/* How Draft Works Section */}
-      <div className="mt-12">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-2xl">How Drafts Work</h2>
-        </div>
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
-          <div className="space-y-6">
-            <p>
-              Once you begin the draft, players will be able to select contestants for all Final 3 positions in a snake draft order. You must wait for each player to make their selection until it is your turn. The same contestant cannot be drafted in the same slot by multiple people in the league. After the draft is complete, these selections are locked for the season. 
-              <br />
-              <br />
-              Weekly while the season is active, you can draft a contestant for the next boot slot. For this position, multiple people in the league can have the same selection.
-            </p>
-          </div>
-        </div>
-
-        <div className="h-4"></div>
-
-        {/* Draft Controls - Only visible to commissioner */}
-        {isCommissioner ? (
-          <div className="mt-6 flex flex-col gap-3">
-            {/* Begin Draft Button */}
-            <button
-              onClick={handleStartDraftClick}
-              disabled={draftStatus === 'completed' || hasDraftStarted}
-              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-                draftStatus === 'completed'
-                  ? 'cursor-not-allowed opacity-60'
-                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-              }`}
-              style={
-                draftStatus === 'completed'
-                  ? { backgroundColor: '#475569', color: '#94a3b8' }
-                  : { 
-                    borderColor: '#BFFF0B',
-                    backgroundColor: 'rgba(191, 255, 11, 0.1)',
-                    color: '#BFFF0B'
-                  }
-              }
-            >
-              {draftStatus === 'completed' ? (
-                <>
-                  <Lock className="w-5 h-5" />
-                  <span>Draft Completed</span>
-                </>
-              ) : hasDraftStarted ? (
-                <>
-                  <Play className="w-5 h-5" />
-                  <span>Draft In Progress</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  <span>Begin Draft</span>
-                </>
-              )}
-            </button>
-
-            {/* Modify Draft Order Button */}
-            <button
-              onClick={() => {
-                if (draftStatus !== 'completed' && !hasDraftStarted) {
-                  setIsDraftOrderModalOpen(true);
-                }
-              }}
-              disabled={draftStatus === 'completed' || hasDraftStarted}
-              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-                draftStatus === 'completed' || hasDraftStarted
-                  ? 'cursor-not-allowed opacity-60'
-                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-              }`}
-              style={
-                draftStatus === 'completed' || hasDraftStarted
-                  ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
-                  : {
-                    borderColor: '#64748b',
-                    backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                    color: '#94a3b8'
-                  }
-              }
-            >
-              <ArrowUpDown className="w-5 h-5" />
-              <span>
-                {draftStatus === 'completed'
-                  ? 'Draft Order Locked'
-                  : hasDraftStarted
-                  ? 'Draft Order Locked'
-                  : 'Modify Draft Order'
-                }
-              </span>
-            </button>
-          </div>
-        ) : (
-          <div className="mt-6">
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
-              <p className="text-slate-400 text-center">
-                Only the league commissioner can modify the draft order and begin the draft.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      {shouldShowPodium ? (
+        <>
+          <div className="h-12"></div>
+          {draftHowItWorksSection}
+        </>
+      ) : null}
 
       {/* League Selector Drawer */}
       {selectedLeague && (
