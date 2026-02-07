@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Users, UserPlus, Copy, Check, Bell } from 'lucide-react';
+import { ChevronDown, Users, Copy, Check, Bell } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementModal from '../modals/ContestantReplacementModal';
 import RosterActivityModal from '../modals/RosterActivityModal';
+import RosterPicksDisplay from '../roster/RosterPicksDisplay';
 import ConfirmationModal from '../modals/ConfirmationModal';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -266,11 +266,6 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     }
   };
 
-  const isContestantEliminated = (contestant: Contestant | null) => {
-    if (!contestant) return false;
-    return contestant.status === 'eliminated' || contestant.status === 'jury';
-  };
-
   const isFinal3ContestantEliminated = (contestant: Contestant | null) => {
     if (!contestant) return false;
     // For Final 3 picks, check if they've been eliminated (but not if they're in final3 status, which means they made it)
@@ -317,12 +312,12 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         <div className="mb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
               <button
                 onClick={() => setIsSelectorOpen(true)}
-                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2"
                 title="Change league"
               >
+                <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
                 <ChevronDown className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -374,7 +369,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         <div className="mb-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-xl border-2 border-amber-600/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg style={{ height: '2rem', width: '2rem' , alignSelf: 'center', justifySelf: 'center'}} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
@@ -388,223 +383,23 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         </div>
       )}
 
-      {/* Final 3 Section */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-6 rounded-full" style={{ backgroundColor: '#BFFF0B' }} />
-          <h2 className="text-2xl">Final 3 Picks</h2>
-        </div>
-        
-        <div className="space-y-4">
-          {final3Slots.map((slot, index) => {
-            const isEliminated = isFinal3ContestantEliminated(slot.contestant);
-            
-            return (
-              <div
-                key={index}
-                className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-4 relative overflow-hidden transition-all ${
-                  isEliminated ? 'opacity-60 grayscale' : ''
-                }`}
-                style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
-              >
-                {slot.contestant ? (
-                  <div className="flex items-center justify-between gap-4">
-                    {/* Left Side: Image, Name, Occupation */}
-                    <div className="flex items-center gap-4 flex-1">
-                      <Avatar
-                        className={`w-16 h-16 border-2 flex-shrink-0 ${
-                          isEliminated ? 'border-slate-500 grayscale' : 'border-[#BFFF0B]'
-                        }`}
-                      >
-                        <AvatarImage
-                          src={slot.contestant.imageUrl}
-                          alt={slot.contestant.name}
-                          className={`object-cover ${isEliminated ? 'grayscale' : ''}`}
-                        />
-                        <AvatarFallback>
-                          {slot.contestant.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <h3 className={`text-lg font-semibold ${isEliminated ? 'text-slate-500' : 'text-white'}`}>
-                          {slot.contestant.name}
-                        </h3>
-                        <p className={`text-sm ${isEliminated ? 'text-slate-600' : 'text-slate-400'}`}>
-                          {slot.contestant.occupation || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Right Side: Status and Points */}
-                    <div className="flex items-center gap-6 flex-shrink-0">
-                      {/* Status Badge */}
-                      <div>
-                        {isEliminated ? (
-                          <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
-                            Eliminated
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 rounded-full text-xs bg-green-600 text-white font-semibold">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Points */}
-                      <div className="text-right">
-                        <div className={`text-2xl font-bold ${isEliminated ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
-                          {slot.points ?? 0}
-                        </div>
-                        <div className="text-xs text-slate-500">points</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-700 flex items-center justify-center flex-shrink-0">
-                        <UserPlus className="w-8 h-8 text-slate-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-400">Empty Slot {index + 1}</h3>
-                        <p className="text-sm text-slate-500">No contestant selected</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDraftClick(final3Slots.indexOf(slot))}
-                      disabled={!hasDraftStarted || !isUserTurnForPosition((index + 1) as 1 | 2 | 3)}
-                      className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 ${
-                        hasDraftStarted && isUserTurnForPosition((index + 1) as 1 | 2 | 3)
-                          ? 'hover:bg-slate-800 cursor-pointer'
-                          : 'opacity-50 cursor-not-allowed'
-                      }`}
-                      style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
-                      title={
-                        !hasDraftStarted 
-                          ? 'Draft has not started yet' 
-                          : !isUserTurnForPosition((index + 1) as 1 | 2 | 3)
-                          ? `It's ${currentDraftTurn?.currentPlayerName || 'another player'}'s turn to draft for Position ${index + 1}`
-                          : 'Draft Player'
-                      }
-                    >
-                      Draft Player
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Next Boot Section */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-1 h-6 rounded-full bg-red-500" />
-          <div>
-            <h2 className="text-2xl">Next Boot Pick</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {isCurrentBootPickActive
-                ? `Locked in for Week ${nextBootWeek}.`
-                : latestEliminationWeek === 0
-                  ? `Week ${nextBootWeek} pick is available now.`
-                  : `Next Boot pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
-            </p>
-          </div>
-        </div>
-
-        <div
-          className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-4 relative overflow-hidden ${
-            isCurrentBootPickActive ? '' : 'border-dashed border-red-500/60'
-          }`}
-        >
-          {isCurrentBootPickActive && bootSlot?.contestant ? (
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1">
-                <Avatar className="w-16 h-16 border-2 border-red-500 flex-shrink-0">
-                  <AvatarImage
-                    src={bootSlot.contestant.imageUrl}
-                    alt={bootSlot.contestant.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback>
-                    {bootSlot.contestant.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs uppercase tracking-wide text-red-400 mb-1">Week {nextBootWeek}</div>
-                  <h3 className="text-lg font-semibold text-white">{bootSlot.contestant.name}</h3>
-                  <p className="text-sm text-slate-400">
-                    {bootSlot.contestant.occupation || 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6 flex-shrink-0">
-                <div>
-                  <span className="px-3 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
-                    BOOT
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-[#BFFF0B]">
-                    {bootSlot.points ?? 0}
-                  </div>
-                  <div className="text-xs text-slate-500">points</div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4 py-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
-                  <UserPlus className="w-8 h-8 text-slate-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-400">
-                    {bootSlot?.contestant ? `Last Week ${bootSlot.weekNumber || '?'} pick: ${bootSlot.contestant.name}` : `No pick yet for Week ${nextBootWeek}`}
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {canDraftBoot
-                      ? `Select a contestant for Week ${nextBootWeek} before the elimination airs.`
-                      : `Waiting for Week ${latestEliminationWeek || 1} elimination to unlock Week ${nextBootWeek}.`}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (!canDraftBoot || bootSlotIndex === -1) return;
-                  handleDraftClick(bootSlotIndex);
-                }}
-                disabled={!canDraftBoot}
-                className={`px-6 py-2.5 rounded-lg border-2 transition-all flex-shrink-0 font-semibold ${
-                  canDraftBoot
-                    ? 'border-[#BFFF0B] text-[#BFFF0B] hover:bg-slate-800 cursor-pointer'
-                    : 'border-red-600 text-red-400 opacity-60 cursor-not-allowed'
-                }`}
-                title={
-                  canDraftBoot
-                    ? `Draft a contestant for Week ${nextBootWeek}`
-                    : `Next Boot pick unlocks after Week ${latestEliminationWeek || 1}`
-                }
-              >
-                Draft Player
-              </button>
-              {!canDraftBoot && (
-                <p className="text-xs text-slate-500">
-                  Once the next elimination is recorded you can choose a Week {nextBootWeek} boot pick.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <RosterPicksDisplay
+        final3Slots={final3Slots}
+        bootSlot={bootSlot}
+        nextBootWeek={nextBootWeek}
+        latestEliminationWeek={latestEliminationWeek}
+        isCurrentBootPickActive={isCurrentBootPickActive}
+        canDraftBoot={canDraftBoot}
+        hasDraftStarted={hasDraftStarted}
+        currentDraftTurnName={currentDraftTurn?.currentPlayerName}
+        isUserTurnForPosition={isUserTurnForPosition}
+        onDraftFinal3={(index) => handleDraftClick(index)}
+        onDraftBoot={() => {
+          if (!canDraftBoot || bootSlotIndex === -1) return;
+          handleDraftClick(bootSlotIndex);
+        }}
+        isFinal3ContestantEliminated={isFinal3ContestantEliminated}
+      />
 
       {/* How Points Work Section */}
       <div className="mt-12">
@@ -616,6 +411,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
           <div className="space-y-6">
             <p>
               Points are awarded weekly for the following:
+            </p>
               <ul>
                 <li>Correctly Predicted Boot: +15 pts</li>
                 <li>Drafted Player is Immune: +10 pts</li>
@@ -623,6 +419,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 <li>Drafted Player Finishes in Final 3: +5 pts</li>
                 <li>Drafted Player Finishes in Predicted Order: +10 pts</li>
               </ul>
+            <p>
+              Points will be posted to the app 24 hours after the episode airs to try to avoid spoiling it for you.
             </p>
           </div>
         </div>

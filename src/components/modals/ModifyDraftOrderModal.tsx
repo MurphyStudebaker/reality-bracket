@@ -135,7 +135,7 @@ export default function ModifyDraftOrderModal({
     member.displayName || member.username || `Player ${member.userId.substring(0, 8)}`;
 
   const header = (
-    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
+    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900 rounded-t-2xl lg:rounded-2xl">
       <div>
         <h2 className="text-xl">Modify Draft Order</h2>
         <p className="text-sm text-slate-400 mt-1">

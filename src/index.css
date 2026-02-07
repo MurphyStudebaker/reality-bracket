@@ -1642,6 +1642,18 @@ button {
   font-weight: 600;
 }
 
+.standings-row:nth-child(odd) {
+  background-color: rgba(15, 23, 42, 0.6);
+}
+
+.standings-row:nth-child(even) {
+  background-color: rgba(15, 23, 42, 0.3);
+}
+
+.standings-row:hover {
+  background-color: rgba(30, 41, 59, 0.6);
+}
+
 input, select {
   color: #fff;
   font-family: inherit;

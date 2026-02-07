@@ -111,7 +111,7 @@ export default function ContestantReplacementModal({
   };
 
   const header = (
-    <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900">
+    <div className="sticky top-0 z-10 flex items-center justify-between p-4 lg:p-6 border-b border-slate-800 bg-slate-900 rounded-t-2xl lg:rounded-2xl">
       <div>
         <h2 className="text-xl">{getHeading()}</h2>
         {currentContestant && (
