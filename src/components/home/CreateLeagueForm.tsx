@@ -34,6 +34,13 @@ export const CreateLeagueForm = ({
   canSubmit,
 }: CreateLeagueFormProps) => {
   const placeholderText = useMemo(() => getRandomLeagueNamePun(), []);
+  const formatSeasonLabel = (season: Season) => {
+    const title = season.title.trim();
+    if (/^season\s+\d+/i.test(title)) {
+      return title;
+    }
+    return `Season ${season.id}: ${title}`;
+  };
 
   return (
     <div className="space-y-6 mt-8 pb-6 px-1 min-h-[500px]">
@@ -67,7 +74,7 @@ export const CreateLeagueForm = ({
                 className="text-white focus:bg-slate-700 focus:text-white"
               >
                 <div className="flex items-center gap-2">
-                  <span>{season.title}</span>
+                  <span>{formatSeasonLabel(season)}</span>
                   {season.status === "live" && (
                     <Badge className="bg-[#BFFF0B] text-black text-xs px-2 py-0 font-semibold">
                       LIVE

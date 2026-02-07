@@ -35,6 +35,13 @@ export default function CreateLeagueModal({
   onClearError,
 }: CreateLeagueModalProps) {
   const [placeholderText, setPlaceholderText] = useState(getRandomLeagueNamePun());
+  const formatSeasonLabel = (season: Season) => {
+    const title = season.title.trim();
+    if (/^season\s+\d+/i.test(title)) {
+      return title;
+    }
+    return `Season ${season.id}: ${title}`;
+  };
 
   // Generate new random placeholder when modal opens
   useEffect(() => {
@@ -137,7 +144,7 @@ export default function CreateLeagueModal({
             <option value="">Choose a season</option>
             {seasons.map((season) => (
               <option key={season.id} value={season.id}>
-                {season.title} {season.status === 'live' && '(Active)'}
+                {formatSeasonLabel(season)} {season.status === 'live' && '(Active)'}
               </option>
             ))}
           </select>

@@ -1,9 +1,8 @@
-import { UserPlus } from 'lucide-react';
 import { useMemo, useEffect, useState, useRef } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { SupabaseService } from '../../services/supabaseService';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import RosterPicksDisplay from '../roster/RosterPicksDisplay';
 import BaseModal from './BaseModal';
 import type { RosterPick, RosterSlot } from '../../models';
 
@@ -12,6 +11,7 @@ interface UserRosterModalProps {
   onClose: () => void;
   userId: string | null;
   leagueId: string | null;
+  seasonId?: string | null;
   username: string;
 }
 
@@ -20,6 +20,7 @@ export default function UserRosterModal({
   onClose, 
   userId, 
   leagueId, 
+  seasonId,
   username 
 }: UserRosterModalProps) {
   // Fetch roster data for the user
@@ -28,6 +29,13 @@ export default function UserRosterModal({
     isOpen && userId && leagueId ? rosterKey : null,
     fetcher
   );
+
+  const latestEliminationWeekKey = createKey('latest-elimination-week', seasonId);
+  const { data: latestEliminationWeek = 0 } = useSWR<number>(
+    isOpen && seasonId ? latestEliminationWeekKey : null,
+    fetcher
+  );
+  const nextBootWeek = Math.max(latestEliminationWeek + 1, 1);
 
   // Fetch points for each pick
   const [pickPointsMap, setPickPointsMap] = useState<Record<string, number>>({});
@@ -100,6 +108,7 @@ export default function UserRosterModal({
         rosterSlots[3].contestant = bootPicks[0].contestant;
         rosterSlots[3].points = pickPointsMap[bootPicks[0].id] || 0;
         rosterSlots[3].pickId = bootPicks[0].id;
+        rosterSlots[3].weekNumber = bootPicks[0].weekNumber;
       }
     }
 
@@ -108,11 +117,9 @@ export default function UserRosterModal({
 
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
-
-  const isContestantEliminated = (contestant: any) => {
-    if (!contestant) return false;
-    return contestant.status === 'eliminated' || contestant.status === 'jury';
-  };
+  const currentBootWeek = bootSlot?.weekNumber ?? 0;
+  const isCurrentBootPickActive = Boolean(bootSlot?.contestant && bootSlot?.weekNumber === nextBootWeek);
+  const canDraftBoot = currentBootWeek < nextBootWeek;
 
   const isFinal3ContestantEliminated = (contestant: any) => {
     if (!contestant) return false;
@@ -134,163 +141,16 @@ export default function UserRosterModal({
                 <div className="text-slate-400">Loading roster...</div>
               </div>
             ) : (
-              <>
-                {/* Final 3 Section */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: '#BFFF0B' }} />
-                    <h3 className="text-lg font-semibold">Final 3 Picks</h3>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {final3Slots.map((slot, index) => {
-                      const isEliminated = isFinal3ContestantEliminated(slot.contestant);
-                      
-                      return (
-                        <div
-                          key={index}
-                          className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-4 relative overflow-hidden transition-all ${
-                            isEliminated ? 'opacity-60 grayscale' : ''
-                          }`}
-                          style={{ borderColor: isEliminated ? '#6B7280' : '#BFFF0B' }}
-                        >
-                          {slot.contestant ? (
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-4 flex-1">
-                                <Avatar
-                                  className={`w-12 h-12 border-2 flex-shrink-0 ${
-                                    isEliminated ? 'border-slate-500 grayscale' : 'border-[#BFFF0B]'
-                                  }`}
-                                >
-                                  <AvatarImage
-                                    src={slot.contestant.imageUrl}
-                                    alt={slot.contestant.name}
-                                    className={`object-cover ${isEliminated ? 'grayscale' : ''}`}
-                                  />
-                                  <AvatarFallback>
-                                    {slot.contestant.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className={`text-base font-semibold ${isEliminated ? 'text-slate-500' : 'text-white'}`}>
-                                    {slot.contestant.name}
-                                  </h4>
-                                  <p className={`text-sm ${isEliminated ? 'text-slate-600' : 'text-slate-400'}`}>
-                                    {slot.contestant.occupation || 'N/A'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-4 flex-shrink-0">
-                                <div>
-                                  {isEliminated && (
-                                    <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
-                                      Eliminated
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                <div className="text-right">
-                                  <div className={`text-xl font-bold ${isEliminated ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
-                                    {slot.points ?? 0}
-                                  </div>
-                                  <div className="text-xs text-slate-500">points</div>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-700 flex items-center justify-center flex-shrink-0">
-                                <UserPlus className="w-6 h-6 text-slate-600" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="text-base font-semibold text-slate-400">Empty Slot {index + 1}</h4>
-                                <p className="text-sm text-slate-500">No contestant selected</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Next Boot Section */}
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-1 h-6 rounded-full bg-red-500" />
-                    <h3 className="text-lg font-semibold">Next Boot Pick</h3>
-                  </div>
-
-                  <div className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-red-500 p-4 relative overflow-hidden ${
-                    bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'opacity-60 grayscale' : ''
-                  }`}>
-                    {bootSlot?.contestant ? (
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1">
-                          <Avatar
-                            className="w-12 h-12 border-2 border-red-500 flex-shrink-0"
-                          >
-                            <AvatarImage
-                              src={bootSlot.contestant.imageUrl}
-                              alt={bootSlot.contestant.name}
-                              className={`object-cover ${bootSlot?.contestant && isContestantEliminated(bootSlot.contestant) ? 'grayscale' : ''}`}
-                            />
-                            <AvatarFallback>
-                              {bootSlot.contestant.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-base font-semibold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-500' : 'text-white'}`}>
-                              {bootSlot.contestant.name}
-                            </h4>
-                            <p className={`text-sm ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-slate-400'}`}>
-                              {bootSlot.contestant.occupation || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                          <div>
-                            {isContestantEliminated(bootSlot.contestant) ? (
-                              <span className="px-2 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
-                                Eliminated
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
-                                BOOT
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="text-right">
-                            <div className={`text-xl font-bold ${isContestantEliminated(bootSlot.contestant) ? 'text-slate-600' : 'text-[#BFFF0B]'}`}>
-                              {bootSlot.points ?? 0}
-                            </div>
-                            <div className="text-xs text-slate-500">points</div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
-                          <UserPlus className="w-6 h-6 text-slate-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-base font-semibold text-slate-400">Empty Slot</h4>
-                          <p className="text-sm text-slate-500">No contestant selected</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
+              <RosterPicksDisplay
+                final3Slots={final3Slots}
+                bootSlot={bootSlot}
+                nextBootWeek={nextBootWeek}
+                latestEliminationWeek={latestEliminationWeek}
+                isCurrentBootPickActive={isCurrentBootPickActive}
+                canDraftBoot={canDraftBoot}
+                headingLevel="h3"
+                isFinal3ContestantEliminated={isFinal3ContestantEliminated}
+              />
             )}
     </BaseModal>
   );

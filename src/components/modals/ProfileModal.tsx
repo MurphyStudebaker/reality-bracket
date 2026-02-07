@@ -191,7 +191,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     ? getFriendlyEmailVerificationMessage(auth.error) ?? auth.error
     : null;
   const header = (
-    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900">
+    <div className="sticky top-0 z-10 flex items-center justify-between p-6 lg:p-8 border-b border-slate-800 bg-slate-900 rounded-t-2xl lg:rounded-2xl">
       <div>
         <h2 className="text-xl">{headerTitle}</h2>
         {headerSubtitle && (

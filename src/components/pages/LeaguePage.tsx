@@ -5,11 +5,13 @@ import LeagueSelector from '../common/LeagueSelector';
 import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
+import ContestantReplacementModal from '../modals/ContestantReplacementModal';
 import UserRosterModal from '../modals/UserRosterModal';
 import { Progress } from '../ui/progress';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
-import type { LeagueStanding } from '../../models';
+import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
+import type { Contestant, LeagueStanding } from '../../models';
 
 interface League {
   id: string;
@@ -54,6 +56,11 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const [isStartDraftConfirmOpen, setIsStartDraftConfirmOpen] = useState(false);
   const [isStartingDraft, setIsStartingDraft] = useState(false);
   const [selectedUserForRoster, setSelectedUserForRoster] = useState<{ userId: string; username: string } | null>(null);
+  const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
 
   // Fetch current user
   const userKey = createKey('current-user');
@@ -139,6 +146,68 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     }
   };
 
+  const isCurrentUserTurn = Boolean(
+    currentDraftTurn?.currentPlayerId &&
+    currentUser?.id &&
+    currentDraftTurn.currentPlayerId === currentUser.id
+  );
+
+  const handleOpenDraftModal = () => {
+    if (!currentDraftTurn?.position || !isCurrentUserTurn) {
+      return;
+    }
+    const slotIndex = currentDraftTurn.position - 1;
+    if (slotIndex < 0 || slotIndex > 2) {
+      return;
+    }
+    setSelectedSlotIndex(slotIndex);
+    setIsReplacementModalOpen(true);
+  };
+
+  const handleSelectContestant = (contestant: Contestant) => {
+    setPendingContestant(contestant);
+    setIsDraftConfirmOpen(true);
+    setIsReplacementModalOpen(false);
+  };
+
+  const handleConfirmDraftPick = async () => {
+    if (selectedSlotIndex === null || !selectedLeague?.id || !pendingContestant) {
+      setIsDraftConfirmOpen(false);
+      setPendingContestant(null);
+      return;
+    }
+
+    setIsDrafting(true);
+    try {
+      const success = await addContestantToRoster(
+        pendingContestant.id,
+        'final3',
+        selectedSlotIndex
+      );
+
+      if (success) {
+        await refreshRoster();
+        if (selectedLeague?.id) {
+          mutate(createKey('league-draft-state', selectedLeague.id));
+        }
+        if (draftTurnKey) {
+          await mutateDraftTurn();
+        }
+        setIsDraftConfirmOpen(false);
+        setPendingContestant(null);
+        setSelectedSlotIndex(null);
+      } else {
+        console.error('Failed to add contestant to roster');
+        alert('Failed to draft contestant. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error drafting contestant:', error);
+      alert('An error occurred while drafting. Please try again.');
+    } finally {
+      setIsDrafting(false);
+    }
+  };
+
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', currentUser?.id);
   const { data: leagues = [], isLoading } = useSWR<League[]>(
@@ -169,6 +238,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       }
     }
   }, [leagues, selectedLeague, onLeagueChange]);
+
+  // Use roster viewmodel for draft pick modal
+  const {
+    roster,
+    availableContestants,
+    addContestantToRoster,
+    refreshRoster,
+  } = useRosterViewModel(selectedLeague?.id || null, currentUser?.id || null);
 
   // Fetch standings using SWR
   const standingsKey = createKey('standings', selectedLeague?.id);
@@ -307,9 +384,122 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     }
   );
 
+  // Get roster picks grouped by position to filter out already-drafted contestants
+  const rosterPicksByPositionKey = createKey('roster-picks-by-position', selectedLeague?.id);
+  const { data: rosterPicksByPosition = {} } = useSWR<Record<number, string[]>>(
+    selectedLeague?.id && hasDraftStarted ? rosterPicksByPositionKey : null,
+    fetcher
+  );
+
 
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);
+  const hasPointTotals = standings.some((standing) => (standing.points ?? 0) > 0);
+  const shouldShowPodium = currentWeek > 0 && hasPointTotals;
+
+  const draftHowItWorksSection = (
+    <div className={shouldShowPodium ? 'mt-12' : 'mb-8'}>
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-2xl">How Drafts Work</h2>
+      </div>
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+        <div className="space-y-6">
+          <p>
+            Once you begin the draft, players will be able to select contestants for all Final 3 positions in a snake draft order. You must wait for each player to make their selection until it is your turn. The same contestant cannot be drafted in the same slot by multiple people in the league. After the draft is complete, these selections are locked for the season. 
+            <br />
+            <br />
+            Weekly while the season is active, you can draft a contestant for the next boot slot. For this position, multiple people in the league can have the same selection.
+          </p>
+        </div>
+      </div>
+
+      <div className="h-4"></div>
+
+      {/* Draft Controls - Only visible to commissioner */}
+      {isCommissioner ? (
+        <div className="mt-6 flex flex-col gap-3">
+          {/* Begin Draft Button */}
+          <button
+            onClick={handleStartDraftClick}
+            disabled={draftStatus === 'completed' || hasDraftStarted}
+            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+              draftStatus === 'completed' || hasDraftStarted
+                ? 'cursor-not-allowed opacity-60'
+                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+            }`}
+            style={
+              draftStatus === 'completed' || hasDraftStarted
+                ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                : { 
+                  borderColor: '#BFFF0B',
+                  backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                  color: '#BFFF0B'
+                }
+            }
+          >
+            {draftStatus === 'completed' ? (
+              <>
+                <Lock className="w-5 h-5" />
+                <span>Draft Completed</span>
+              </>
+            ) : hasDraftStarted ? (
+              <>
+                <Play className="w-5 h-5" />
+                <span>Draft In Progress</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5" />
+                <span>Begin Draft</span>
+              </>
+            )}
+          </button>
+
+          {/* Modify Draft Order Button */}
+          <button
+            onClick={() => {
+              if (draftStatus !== 'completed' && !hasDraftStarted) {
+                setIsDraftOrderModalOpen(true);
+              }
+            }}
+            disabled={draftStatus === 'completed' || hasDraftStarted}
+            className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
+              draftStatus === 'completed' || hasDraftStarted
+                ? 'cursor-not-allowed opacity-60'
+                : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+            }`}
+            style={
+              draftStatus === 'completed' || hasDraftStarted
+                ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                : {
+                  borderColor: '#64748b',
+                  backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                  color: '#94a3b8'
+                }
+            }
+          >
+            <ArrowUpDown className="w-5 h-5" />
+            <span>
+              {draftStatus === 'completed'
+                ? 'Draft Order Locked'
+                : hasDraftStarted
+                ? 'Draft Order Locked'
+                : 'Modify Draft Order'
+              }
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
+            <p className="text-slate-400 text-center">
+              Only the league commissioner can modify the draft order and begin the draft.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const handleCopyInviteCode = async () => {
     const inviteCode = currentLeagueData?.inviteCode || selectedLeague?.inviteCode;
@@ -351,12 +541,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         <div className="mb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
               <button
                 onClick={() => setIsSelectorOpen(true)}
-                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2"
                 title="Change league"
               >
+                <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
                 <ChevronDown className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -421,13 +611,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         </div>
       ) : currentDraftTurn ? (
-        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-blue-600/50 p-4">
+        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
             <div className="flex-1">
               <h3 className="text-blue-300 font-semibold mb-1">
                 Draft Round: {(() => {
@@ -441,14 +626,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               </h3>
               <p className="text-blue-200/80 text-sm mb-3">
                 {currentDraftTurn.currentPlayerId === currentUser?.id ? (
-                  <span>It's <span className="font-semibold text-blue-300">your</span> turn to draft for this position.</span>
+                  <span>It's <span style={{ fontWeight: 'bold' }}>your</span> turn to draft for this position.</span>
                 ) : (
-                  <span>It's <span className="font-semibold text-blue-300">{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.</span>
+                  <span>It's <span style={{ fontWeight: 'bold' }}>{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.</span>
                 )}
               </p>
 
               {/* Draft Progress Bar */}
-              {(() => {
+              {/* {(() => {
                 const totalPlayers = draftOrderMembers.length;
                 const totalPicksNeeded = totalPlayers * 3;
                 const currentPicks = Object.values(leagueDraftState).reduce((sum, count) => sum + count, 0);
@@ -471,7 +656,28 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                     </div>
                   </div>
                 );
-              })()}
+              })()} */}
+              <div className="h-4"></div>
+              <button
+                onClick={handleOpenDraftModal}
+                disabled={!isCurrentUserTurn}
+                className={`mt-4 w-full px-4 py-3 rounded-lg border-2 transition-all font-semibold ${
+                  isCurrentUserTurn
+                    ? 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+                    : 'cursor-not-allowed opacity-60'
+                }`}
+                style={
+                  isCurrentUserTurn
+                    ? {
+                      borderColor: '#BFFF0B',
+                      backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                      color: '#BFFF0B',
+                    }
+                    : { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                }
+              >
+                {isCurrentUserTurn ? 'Make Your Pick' : 'Wait Your Turn'}
+              </button>
             </div>
           </div>
         </div>
@@ -494,7 +700,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       )}
 
       {/* Podium Visualization */}
-      <div className="mb-8">
+      {shouldShowPodium ? (
+        <div className="mb-8">
         <h2 className="text-2xl mb-6">Top 3</h2>
         
         {isLoadingStandings ? (
@@ -505,7 +712,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             <div className="flex-1 max-w-[140px] sm:max-w-[200px]">
               <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-3 sm:p-4 mb-3 border-2 border-dashed border-slate-600">
                 <div className="flex justify-center mb-2 sm:mb-3">
-                  <Medal className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
+                  <Award className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
                 </div>
                 <div className="aspect-square rounded-full bg-slate-700/30 mb-2 sm:mb-3 overflow-hidden">
                   <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl text-slate-600">
@@ -568,7 +775,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               <div className="flex-1 max-w-[140px] sm:max-w-[200px]">
                 <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-3 sm:p-4 mb-3 border-2 border-slate-600">
                   <div className="flex justify-center mb-2 sm:mb-3">
-                    <Medal className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                    <Award className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
                   </div>
                   <div className="aspect-square rounded-full bg-slate-600 mb-2 sm:mb-3 overflow-hidden">
                     <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl">
@@ -701,6 +908,9 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         )}
       </div>
+      ) : (
+        draftHowItWorksSection
+      )}
 
       {/* Full Standings */}
       <div>
@@ -725,9 +935,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               </div>
             ) : (
               standings.map((standing) => (
-                <div
+                <button
                   key={standing.userId}
-                  className="grid grid-cols-[40px_1fr_80px_50px] sm:grid-cols-[60px_1fr_100px_80px] gap-2 sm:gap-4 p-4 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/50 transition-colors"
+                  type="button"
+                  onClick={() => handleUserClick(standing.userId, standing.username)}
+                  className="standings-row grid grid-cols-[40px_1fr_80px_50px] sm:grid-cols-[60px_1fr_100px_80px] gap-2 sm:gap-4 p-4 border-b border-slate-800 last:border-b-0 transition-colors text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600/70"
+                  aria-label={`View ${standing.username}'s roster`}
                 >
                   <div className="text-center">
                     <span className={`inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full text-sm sm:text-base ${
@@ -737,12 +950,9 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                       {standing.rank}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleUserClick(standing.userId, standing.username)}
-                    className="truncate text-left hover:underline cursor-pointer text-white"
-                  >
+                  <span className="truncate text-white hover:underline">
                     {standing.username}
-                  </button>
+                  </span>
                   <div className="text-right">{standing.points ?? 0}</div>
                   <div className="flex justify-center">
                     {standing.change > 0 && (
@@ -761,117 +971,19 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                       <Minus className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500" />
                     )}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
         </div>
       </div>
 
-      <div className="h-12"></div>
-
-      {/* How Draft Works Section */}
-      <div className="mt-12">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-2xl">How Drafts Work</h2>
-        </div>
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
-          <div className="space-y-6">
-            <p>
-              Once you begin the draft, players will be able to select contestants for all Final 3 positions in a snake draft order. You must wait for each player to make their selection until it is your turn. The same contestant cannot be drafted in the same slot by multiple people in the league. After the draft is complete, these selections are locked for the season. 
-              <br />
-              <br />
-              Weekly while the season is active, you can draft a contestant for the next boot slot. For this position, multiple people in the league can have the same selection.
-            </p>
-          </div>
-        </div>
-
-        <div className="h-4"></div>
-
-        {/* Draft Controls - Only visible to commissioner */}
-        {isCommissioner ? (
-          <div className="mt-6 flex flex-col gap-3">
-            {/* Begin Draft Button */}
-            <button
-              onClick={handleStartDraftClick}
-              disabled={draftStatus === 'completed' || hasDraftStarted}
-              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-                draftStatus === 'completed'
-                  ? 'cursor-not-allowed opacity-60'
-                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-              }`}
-              style={
-                draftStatus === 'completed'
-                  ? { backgroundColor: '#475569', color: '#94a3b8' }
-                  : { 
-                    borderColor: '#BFFF0B',
-                    backgroundColor: 'rgba(191, 255, 11, 0.1)',
-                    color: '#BFFF0B'
-                  }
-              }
-            >
-              {draftStatus === 'completed' ? (
-                <>
-                  <Lock className="w-5 h-5" />
-                  <span>Draft Completed</span>
-                </>
-              ) : hasDraftStarted ? (
-                <>
-                  <Play className="w-5 h-5" />
-                  <span>Draft In Progress</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  <span>Begin Draft</span>
-                </>
-              )}
-            </button>
-
-            {/* Modify Draft Order Button */}
-            <button
-              onClick={() => {
-                if (draftStatus !== 'completed' && !hasDraftStarted) {
-                  setIsDraftOrderModalOpen(true);
-                }
-              }}
-              disabled={draftStatus === 'completed' || hasDraftStarted}
-              className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-                draftStatus === 'completed' || hasDraftStarted
-                  ? 'cursor-not-allowed opacity-60'
-                  : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
-              }`}
-              style={
-                draftStatus === 'completed' || hasDraftStarted
-                  ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
-                  : {
-                    borderColor: '#64748b',
-                    backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                    color: '#94a3b8'
-                  }
-              }
-            >
-              <ArrowUpDown className="w-5 h-5" />
-              <span>
-                {draftStatus === 'completed'
-                  ? 'Draft Order Locked'
-                  : hasDraftStarted
-                  ? 'Draft Order Locked'
-                  : 'Modify Draft Order'
-                }
-              </span>
-            </button>
-          </div>
-        ) : (
-          <div className="mt-6">
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
-              <p className="text-slate-400 text-center">
-                Only the league commissioner can modify the draft order and begin the draft.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      {shouldShowPodium ? (
+        <>
+          <div className="h-12"></div>
+          {draftHowItWorksSection}
+        </>
+      ) : null}
 
       {/* League Selector Drawer */}
       {selectedLeague && (
@@ -909,6 +1021,47 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         leagueId={selectedLeague?.id || null}
       />
 
+      {/* Contestant Replacement Modal */}
+      <ContestantReplacementModal
+        isOpen={isReplacementModalOpen}
+        onClose={() => {
+          setIsReplacementModalOpen(false);
+          setSelectedSlotIndex(null);
+        }}
+        contestants={availableContestants}
+        currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
+        slotType="final3"
+        slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
+        onSelectContestant={handleSelectContestant}
+        roster={roster}
+        leagueId={selectedLeague?.id || null}
+        rosterPicksByPosition={rosterPicksByPosition}
+      />
+
+      {/* Draft Confirmation Modal */}
+      {pendingContestant && selectedSlotIndex !== null && (
+        <ConfirmationModal
+          isOpen={isDraftConfirmOpen}
+          onClose={() => {
+            setIsDraftConfirmOpen(false);
+            setPendingContestant(null);
+            setIsReplacementModalOpen(true);
+          }}
+          onConfirm={handleConfirmDraftPick}
+          title="Confirm Draft Selection"
+          message={`Are you sure you want to draft ${pendingContestant.name} for Position ${
+            selectedSlotIndex + 1
+          } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`}
+          confirmText="Confirm Draft"
+          cancelText="Cancel"
+          isLoading={isDrafting}
+          confirmButtonStyle={{
+            backgroundColor: '#22c55e',
+            color: '#0f172a',
+          }}
+        />
+      )}
+
       {/* Start Draft Confirmation Modal */}
       <ConfirmationModal
         isOpen={isStartDraftConfirmOpen}
@@ -931,6 +1084,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         onClose={() => setSelectedUserForRoster(null)}
         userId={selectedUserForRoster?.userId || null}
         leagueId={selectedLeague?.id || null}
+        seasonId={seasonId || null}
         username={selectedUserForRoster?.username || ''}
       />
     </div>
