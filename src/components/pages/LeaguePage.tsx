@@ -611,13 +611,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         </div>
       ) : currentDraftTurn ? (
-        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-blue-600/50 p-4">
+        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
             <div className="flex-1">
               <h3 className="text-blue-300 font-semibold mb-1">
                 Draft Round: {(() => {
@@ -638,7 +633,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               </p>
 
               {/* Draft Progress Bar */}
-              {(() => {
+              {/* {(() => {
                 const totalPlayers = draftOrderMembers.length;
                 const totalPicksNeeded = totalPlayers * 3;
                 const currentPicks = Object.values(leagueDraftState).reduce((sum, count) => sum + count, 0);
@@ -661,8 +656,8 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                     </div>
                   </div>
                 );
-              })()}
-
+              })()} */}
+              <div className="h-4"></div>
               <button
                 onClick={handleOpenDraftModal}
                 disabled={!isCurrentUserTurn}
