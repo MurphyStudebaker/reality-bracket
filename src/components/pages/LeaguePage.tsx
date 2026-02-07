@@ -5,11 +5,13 @@ import LeagueSelector from '../common/LeagueSelector';
 import LeagueActivityModal from '../modals/LeagueActivityModal';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
+import ContestantReplacementModal from '../modals/ContestantReplacementModal';
 import UserRosterModal from '../modals/UserRosterModal';
 import { Progress } from '../ui/progress';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
-import type { LeagueStanding } from '../../models';
+import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
+import type { Contestant, LeagueStanding } from '../../models';
 
 interface League {
   id: string;
@@ -54,6 +56,11 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const [isStartDraftConfirmOpen, setIsStartDraftConfirmOpen] = useState(false);
   const [isStartingDraft, setIsStartingDraft] = useState(false);
   const [selectedUserForRoster, setSelectedUserForRoster] = useState<{ userId: string; username: string } | null>(null);
+  const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
+  const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
+  const [isDrafting, setIsDrafting] = useState(false);
 
   // Fetch current user
   const userKey = createKey('current-user');
@@ -139,6 +146,68 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     }
   };
 
+  const isCurrentUserTurn = Boolean(
+    currentDraftTurn?.currentPlayerId &&
+    currentUser?.id &&
+    currentDraftTurn.currentPlayerId === currentUser.id
+  );
+
+  const handleOpenDraftModal = () => {
+    if (!currentDraftTurn?.position || !isCurrentUserTurn) {
+      return;
+    }
+    const slotIndex = currentDraftTurn.position - 1;
+    if (slotIndex < 0 || slotIndex > 2) {
+      return;
+    }
+    setSelectedSlotIndex(slotIndex);
+    setIsReplacementModalOpen(true);
+  };
+
+  const handleSelectContestant = (contestant: Contestant) => {
+    setPendingContestant(contestant);
+    setIsDraftConfirmOpen(true);
+    setIsReplacementModalOpen(false);
+  };
+
+  const handleConfirmDraftPick = async () => {
+    if (selectedSlotIndex === null || !selectedLeague?.id || !pendingContestant) {
+      setIsDraftConfirmOpen(false);
+      setPendingContestant(null);
+      return;
+    }
+
+    setIsDrafting(true);
+    try {
+      const success = await addContestantToRoster(
+        pendingContestant.id,
+        'final3',
+        selectedSlotIndex
+      );
+
+      if (success) {
+        await refreshRoster();
+        if (selectedLeague?.id) {
+          mutate(createKey('league-draft-state', selectedLeague.id));
+        }
+        if (draftTurnKey) {
+          await mutateDraftTurn();
+        }
+        setIsDraftConfirmOpen(false);
+        setPendingContestant(null);
+        setSelectedSlotIndex(null);
+      } else {
+        console.error('Failed to add contestant to roster');
+        alert('Failed to draft contestant. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error drafting contestant:', error);
+      alert('An error occurred while drafting. Please try again.');
+    } finally {
+      setIsDrafting(false);
+    }
+  };
+
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', currentUser?.id);
   const { data: leagues = [], isLoading } = useSWR<League[]>(
@@ -169,6 +238,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       }
     }
   }, [leagues, selectedLeague, onLeagueChange]);
+
+  // Use roster viewmodel for draft pick modal
+  const {
+    roster,
+    availableContestants,
+    addContestantToRoster,
+    refreshRoster,
+  } = useRosterViewModel(selectedLeague?.id || null, currentUser?.id || null);
 
   // Fetch standings using SWR
   const standingsKey = createKey('standings', selectedLeague?.id);
@@ -305,6 +382,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         return [];
       }
     }
+  );
+
+  // Get roster picks grouped by position to filter out already-drafted contestants
+  const rosterPicksByPositionKey = createKey('roster-picks-by-position', selectedLeague?.id);
+  const { data: rosterPicksByPosition = {} } = useSWR<Record<number, string[]>>(
+    selectedLeague?.id && hasDraftStarted ? rosterPicksByPositionKey : null,
+    fetcher
   );
 
 
@@ -578,6 +662,27 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                   </div>
                 );
               })()}
+
+              <button
+                onClick={handleOpenDraftModal}
+                disabled={!isCurrentUserTurn}
+                className={`mt-4 w-full px-4 py-3 rounded-lg border-2 transition-all font-semibold ${
+                  isCurrentUserTurn
+                    ? 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
+                    : 'cursor-not-allowed opacity-60'
+                }`}
+                style={
+                  isCurrentUserTurn
+                    ? {
+                      borderColor: '#BFFF0B',
+                      backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                      color: '#BFFF0B',
+                    }
+                    : { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
+                }
+              >
+                {isCurrentUserTurn ? 'Make Your Pick' : 'Wait Your Turn'}
+              </button>
             </div>
           </div>
         </div>
@@ -920,6 +1025,47 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         }}
         leagueId={selectedLeague?.id || null}
       />
+
+      {/* Contestant Replacement Modal */}
+      <ContestantReplacementModal
+        isOpen={isReplacementModalOpen}
+        onClose={() => {
+          setIsReplacementModalOpen(false);
+          setSelectedSlotIndex(null);
+        }}
+        contestants={availableContestants}
+        currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
+        slotType="final3"
+        slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
+        onSelectContestant={handleSelectContestant}
+        roster={roster}
+        leagueId={selectedLeague?.id || null}
+        rosterPicksByPosition={rosterPicksByPosition}
+      />
+
+      {/* Draft Confirmation Modal */}
+      {pendingContestant && selectedSlotIndex !== null && (
+        <ConfirmationModal
+          isOpen={isDraftConfirmOpen}
+          onClose={() => {
+            setIsDraftConfirmOpen(false);
+            setPendingContestant(null);
+            setIsReplacementModalOpen(true);
+          }}
+          onConfirm={handleConfirmDraftPick}
+          title="Confirm Draft Selection"
+          message={`Are you sure you want to draft ${pendingContestant.name} for Position ${
+            selectedSlotIndex + 1
+          } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`}
+          confirmText="Confirm Draft"
+          cancelText="Cancel"
+          isLoading={isDrafting}
+          confirmButtonStyle={{
+            backgroundColor: '#22c55e',
+            color: '#0f172a',
+          }}
+        />
+      )}
 
       {/* Start Draft Confirmation Modal */}
       <ConfirmationModal
