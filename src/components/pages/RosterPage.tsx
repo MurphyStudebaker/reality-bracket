@@ -391,7 +391,6 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
       {/* Final 3 Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-6 rounded-full" style={{ backgroundColor: '#BFFF0B' }} />
           <h2 className="text-2xl">Final 3 Picks</h2>
         </div>
         
@@ -503,15 +502,14 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
       {/* Next Boot Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-1 h-6 rounded-full bg-red-500" />
           <div>
-            <h2 className="text-2xl">Next Boot Pick</h2>
+            <h2 className="text-2xl">Next Eliminated Pick</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {isCurrentBootPickActive
                 ? `Locked in for Week ${nextBootWeek}.`
                 : latestEliminationWeek === 0
                   ? `Week ${nextBootWeek} pick is available now.`
-                  : `Next Boot pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
+                  : `Next Eliminated pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
             </p>
           </div>
         </div>
@@ -568,11 +566,11 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-slate-400">
-                    {bootSlot?.contestant ? `Last Week ${bootSlot.weekNumber || '?'} pick: ${bootSlot.contestant.name}` : `No pick yet for Week ${nextBootWeek}`}
+                    Who will get their torch snuffed next?
                   </h3>
                   <p className="text-sm text-slate-500">
                     {canDraftBoot
-                      ? `Select a contestant for Week ${nextBootWeek} before the elimination airs.`
+                      ? `Select a contestant for Week ${nextBootWeek} before the elimination airs. Last week you picked ${bootSlot?.contestant?.name || 'No one'}.`
                       : `Waiting for Week ${latestEliminationWeek || 1} elimination to unlock Week ${nextBootWeek}.`}
                   </p>
                 </div>
@@ -616,6 +614,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
           <div className="space-y-6">
             <p>
               Points are awarded weekly for the following:
+            </p>
               <ul>
                 <li>Correctly Predicted Boot: +15 pts</li>
                 <li>Drafted Player is Immune: +10 pts</li>
@@ -623,6 +622,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 <li>Drafted Player Finishes in Final 3: +5 pts</li>
                 <li>Drafted Player Finishes in Predicted Order: +10 pts</li>
               </ul>
+            <p>
+              Points will be posted to the app 24 hours after the episode airs to try to avoid spoiling it for you.
             </p>
           </div>
         </div>

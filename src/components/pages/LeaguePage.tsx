@@ -423,13 +423,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             onClick={handleStartDraftClick}
             disabled={draftStatus === 'completed' || hasDraftStarted}
             className={`w-full px-6 py-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${
-              draftStatus === 'completed'
+              draftStatus === 'completed' || hasDraftStarted
                 ? 'cursor-not-allowed opacity-60'
                 : 'hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80'
             }`}
             style={
-              draftStatus === 'completed'
-                ? { backgroundColor: '#475569', color: '#94a3b8' }
+              draftStatus === 'completed' || hasDraftStarted
+                ? { backgroundColor: '#475569', color: '#94a3b8', borderColor: '#475569' }
                 : { 
                   borderColor: '#BFFF0B',
                   backgroundColor: 'rgba(191, 255, 11, 0.1)',
