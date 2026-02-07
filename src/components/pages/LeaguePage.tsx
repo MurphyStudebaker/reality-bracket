@@ -626,9 +626,9 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               </h3>
               <p className="text-blue-200/80 text-sm mb-3">
                 {currentDraftTurn.currentPlayerId === currentUser?.id ? (
-                  <span>It's <span className="font-semibold text-blue-300">your</span> turn to draft for this position.</span>
+                  <span>It's <span style={{ fontWeight: 'bold' }}>your</span> turn to draft for this position.</span>
                 ) : (
-                  <span>It's <span className="font-semibold text-blue-300">{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.</span>
+                  <span>It's <span style={{ fontWeight: 'bold' }}>{currentDraftTurn.currentPlayerName || 'Unknown Player'}</span>'s turn to draft for this position.</span>
                 )}
               </p>
 
@@ -935,9 +935,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               </div>
             ) : (
               standings.map((standing) => (
-                <div
+                <button
                   key={standing.userId}
-                  className="grid grid-cols-[40px_1fr_80px_50px] sm:grid-cols-[60px_1fr_100px_80px] gap-2 sm:gap-4 p-4 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/50 transition-colors"
+                  type="button"
+                  onClick={() => handleUserClick(standing.userId, standing.username)}
+                  className="standings-row grid grid-cols-[40px_1fr_80px_50px] sm:grid-cols-[60px_1fr_100px_80px] gap-2 sm:gap-4 p-4 border-b border-slate-800 last:border-b-0 transition-colors text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600/70"
+                  aria-label={`View ${standing.username}'s roster`}
                 >
                   <div className="text-center">
                     <span className={`inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full text-sm sm:text-base ${
@@ -947,12 +950,9 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                       {standing.rank}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleUserClick(standing.userId, standing.username)}
-                    className="truncate text-left hover:underline cursor-pointer text-white"
-                  >
+                  <span className="truncate text-white hover:underline">
                     {standing.username}
-                  </button>
+                  </span>
                   <div className="text-right">{standing.points ?? 0}</div>
                   <div className="flex justify-center">
                     {standing.change > 0 && (
@@ -971,7 +971,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
                       <Minus className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500" />
                     )}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -1084,6 +1084,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         onClose={() => setSelectedUserForRoster(null)}
         userId={selectedUserForRoster?.userId || null}
         leagueId={selectedLeague?.id || null}
+        seasonId={seasonId || null}
         username={selectedUserForRoster?.username || ''}
       />
     </div>
