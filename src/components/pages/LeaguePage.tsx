@@ -541,12 +541,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         <div className="mb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
               <button
                 onClick={() => setIsSelectorOpen(true)}
-                className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2"
                 title="Change league"
               >
+                <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
                 <ChevronDown className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -712,7 +712,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             <div className="flex-1 max-w-[140px] sm:max-w-[200px]">
               <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-3 sm:p-4 mb-3 border-2 border-dashed border-slate-600">
                 <div className="flex justify-center mb-2 sm:mb-3">
-                  <Medal className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
+                  <Award className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
                 </div>
                 <div className="aspect-square rounded-full bg-slate-700/30 mb-2 sm:mb-3 overflow-hidden">
                   <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl text-slate-600">
@@ -775,7 +775,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
               <div className="flex-1 max-w-[140px] sm:max-w-[200px]">
                 <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-3 sm:p-4 mb-3 border-2 border-slate-600">
                   <div className="flex justify-center mb-2 sm:mb-3">
-                    <Medal className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                    <Award className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
                   </div>
                   <div className="aspect-square rounded-full bg-slate-600 mb-2 sm:mb-3 overflow-hidden">
                     <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl">
