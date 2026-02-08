@@ -86,19 +86,56 @@ export default function ModifyDraftOrderModal({
     setDraggedIndex(index);
   };
 
+  const moveMember = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setMembers(prevMembers => {
+      const nextMembers = [...prevMembers];
+      const [draggedItem] = nextMembers.splice(fromIndex, 1);
+      nextMembers.splice(toIndex, 0, draggedItem);
+      return nextMembers;
+    });
+  };
+
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
 
-    const draggedItem = members[draggedIndex];
-    const newMembers = [...members];
-    newMembers.splice(draggedIndex, 1);
-    newMembers.splice(index, 0, draggedItem);
-    setMembers(newMembers);
+    moveMember(draggedIndex, index);
     setDraggedIndex(index);
   };
 
   const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, index: number) => {
+    if (e.pointerType !== 'touch') return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDraggedIndex(index);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    if (draggedIndex === null) return;
+    e.preventDefault();
+
+    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    if (!target) return;
+
+    const item = target.closest('[data-draft-index]') as HTMLElement | null;
+    if (!item) return;
+
+    const targetIndex = Number(item.dataset.draftIndex);
+    if (Number.isNaN(targetIndex) || targetIndex === draggedIndex) return;
+
+    moveMember(draggedIndex, targetIndex);
+    setDraggedIndex(targetIndex);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    e.preventDefault();
     setDraggedIndex(null);
   };
 
@@ -206,6 +243,11 @@ export default function ModifyDraftOrderModal({
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
+              onPointerDown={(e) => handlePointerDown(e, index)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              data-draft-index={index}
               className={`
                 bg-slate-800/50 rounded-xl p-4 cursor-move
                 transition-all hover:bg-slate-800
