@@ -83,42 +83,44 @@ export default function RosterActivityContent({
 
   // Calculate points for each event based on pick type
   const activityEvents = useMemo(() => {
-    return rawEvents.map((event) => {
-      const pickType = contestantPickTypeMap[event.contestantId];
-      if (!pickType) {
-        return { ...event, points: 0 };
-      }
-
-      // Calculate points for this specific event
-      let points = 0;
-      if (pickType === 'boot') {
-        // Boot pick: +15 pts for eliminated or medical_evacuated
-        if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
-          points = 15;
+    return rawEvents
+      .map((event) => {
+        const pickType = contestantPickTypeMap[event.contestantId];
+        if (!pickType) {
+          return { ...event, points: 0 };
         }
-      } else if (pickType === 'final3') {
-        // Final 3 pick: +10 for immunity, +5 for made_jury, +5 for made_final_three
-        if (event.activityType === 'immunity') {
-          points = 10;
-        } else if (event.activityType === 'made_jury') {
-          points = 5;
-        } else if (event.activityType === 'made_final_three') {
-          points = 5;
-        }
-      }
 
-      return { ...event, points };
-    });
+        // Calculate points for this specific event
+        let points = 0;
+        if (pickType === 'boot') {
+          // Boot pick: +15 pts for eliminated or medical_evacuated
+          if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
+            points = 15;
+          }
+        } else if (pickType === 'final3') {
+          // Final 3 pick: +10 for immunity, +5 for made_jury, +5 for made_final_three
+          if (event.activityType === 'immunity') {
+            points = 10;
+          } else if (event.activityType === 'made_jury') {
+            points = 5;
+          } else if (event.activityType === 'made_final_three') {
+            points = 5;
+          }
+        }
+
+        return { ...event, points };
+      })
+      .filter((event) => event.points > 0);
   }, [rawEvents, contestantPickTypeMap]);
 
-  // Group events by contestant
-  const eventsByContestant = useMemo<Record<string, ActivityEvent[]>>(() => {
-    const grouped: Record<string, ActivityEvent[]> = {};
+  // Group events by week
+  const eventsByWeek = useMemo<Record<number, ActivityEvent[]>>(() => {
+    const grouped: Record<number, ActivityEvent[]> = {};
     activityEvents.forEach(event => {
-      if (!grouped[event.contestantId]) {
-        grouped[event.contestantId] = [];
+      if (!grouped[event.weekNumber]) {
+        grouped[event.weekNumber] = [];
       }
-      grouped[event.contestantId].push(event);
+      grouped[event.weekNumber].push(event);
     });
     return grouped;
   }, [activityEvents]);
@@ -153,81 +155,78 @@ export default function RosterActivityContent({
           No activity events yet. Points will appear here as events are added.
         </div>
       ) : (
-        <div className="space-y-3">
-          {Object.keys(eventsByContestant).map((contestantId) => {
-            const events = eventsByContestant[contestantId];
-            const metadata = contestantMetadata[contestantId];
-            const contestant = metadata?.contestant;
-            const pickType = metadata?.pickType;
-            const weekNumber = metadata?.weekNumber;
+        <div className="space-y-6">
+          {Object.keys(eventsByWeek)
+            .map(Number)
+            .sort((a, b) => b - a)
+            .map((weekNumber) => {
+              const events = eventsByWeek[weekNumber];
+              const totalPoints = events.reduce((sum, event) => sum + event.points, 0);
+              const sortedEvents = [...events].sort((a, b) => {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              });
 
-            if (!contestant || !pickType) return null;
+              return (
+                <div key={weekNumber}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-white">Week {weekNumber}</h3>
+                    <div className="text-sm font-semibold" style={{ color: '#BFFF0B' }}>
+                      +{totalPoints} pts
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {sortedEvents.map((event) => {
+                      const metadata = contestantMetadata[event.contestantId];
+                      const contestant = metadata?.contestant;
+                      const pickType = metadata?.pickType;
+                      const weekPickNumber = metadata?.weekNumber;
 
-            // Sort events by week (newest first)
-            const sortedEvents = [...events].sort((a, b) => {
-              if (b.weekNumber !== a.weekNumber) {
-                return b.weekNumber - a.weekNumber;
-              }
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            });
+                      if (!contestant || !pickType) return null;
 
-            return (
-              <div
-                key={contestantId}
-                className="bg-slate-800/50 rounded-lg p-3 border border-slate-700"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Avatar
-                    className={`w-12 h-12 border-2 flex-shrink-0 ${
-                      pickType === 'boot' ? 'border-red-500' : 'border-[#BFFF0B]'
-                    }`}
-                  >
-                    <AvatarImage
-                      src={contestant.imageUrl}
-                      alt={contestant.name}
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="text-xs bg-slate-700 text-white">
-                      {contestant.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-white truncate">{contestant.name}</h4>
-                    <p className="text-xs text-slate-400">
-                      {pickType === 'boot'
-                        ? `Next Boot${weekNumber ? ` • Week ${weekNumber}` : ''}`
-                        : 'Final 3'}
-                    </p>
+                      return (
+                        <div
+                          key={event.id}
+                          className="bg-slate-800/50 rounded-lg p-3 border border-slate-700"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar
+                              className={`w-10 h-10 border-2 flex-shrink-0 ${
+                                pickType === 'boot' ? 'border-red-500' : 'border-[#BFFF0B]'
+                              }`}
+                            >
+                              <AvatarImage
+                                src={contestant.imageUrl}
+                                alt={contestant.name}
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="text-xs bg-slate-700 text-white">
+                                {contestant.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-white">
+                                {contestant.name} - {formatActivityType(event.activityType)}
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {pickType === 'boot'
+                                  ? `Next Boot${weekPickNumber ? ` • Week ${weekPickNumber}` : ''}`
+                                  : 'Final 3'}
+                              </div>
+                            </div>
+                            <div className="text-xs font-semibold ml-2 flex-shrink-0" style={{ color: '#BFFF0B' }}>
+                              +{event.points} pts
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  {sortedEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between py-1.5 px-2 rounded"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-white">
-                          {formatActivityType(event.activityType)}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          Week {event.weekNumber}
-                        </div>
-                      </div>
-                      {event.points > 0 && (
-                        <div className="text-xs font-semibold ml-2 flex-shrink-0" style={{ color: '#BFFF0B' }}>
-                          +{event.points} pts
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       )}
     </div>

@@ -99,17 +99,14 @@ export default function RosterPicksDisplay({
                     {/* Right Side: Status and Points */}
                     <div className="flex items-center gap-6 flex-shrink-0">
                       {/* Status Badge */}
-                      <div>
-                        {isEliminated ? (
+                        {isEliminated && (
+                            <div>
                           <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
                             Eliminated
                           </span>
-                        ) : (
-                          <span className="px-3 py-1 rounded-full text-xs bg-green-600 text-white font-semibold">
-                            Active
-                          </span>
+                          </div>
                         )}
-                      </div>
+                      
                       
                       {/* Points */}
                       <div className="text-right">
@@ -169,7 +166,7 @@ export default function RosterPicksDisplay({
             <HeadingTag className="text-2xl">Next Eliminated Pick</HeadingTag>
             <p className="text-xs text-slate-500 mt-0.5">
               {isCurrentBootPickActive
-                ? `Locked in for Week ${nextBootWeek}.`
+                ? ''
                 : latestEliminationWeek === 0
                   ? `Week ${nextBootWeek} pick is available now.`
                   : `Next Eliminated pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
@@ -204,20 +201,6 @@ export default function RosterPicksDisplay({
                   <p className="text-sm text-slate-400">
                     {bootSlot.contestant.occupation || 'N/A'}
                   </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6 flex-shrink-0">
-                <div>
-                  <span className="px-3 py-1 rounded-full text-xs bg-red-500 text-white font-semibold">
-                    BOOT
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-[#BFFF0B]">
-                    {bootSlot.points ?? 0}
-                  </div>
-                  <div className="text-xs text-slate-500">points</div>
                 </div>
               </div>
             </div>
@@ -259,11 +242,6 @@ export default function RosterPicksDisplay({
                   >
                     Draft Player
                   </button>
-                  {!canDraftBoot && (
-                    <p className="text-xs text-slate-500">
-                      Once the next elimination is recorded you can choose a Week {nextBootWeek} boot pick.
-                    </p>
-                  )}
                 </>
               )}
             </div>

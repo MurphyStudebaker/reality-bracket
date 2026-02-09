@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Users, Copy, Check, Bell } from 'lucide-react';
+import { ChevronDown, Users, Copy, Check } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementModal from '../modals/ContestantReplacementModal';
-import RosterActivityModal from '../modals/RosterActivityModal';
+import RosterActivityContent from '../roster/RosterActivityContent';
 import RosterPicksDisplay from '../roster/RosterPicksDisplay';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { fetcher, createKey } from '../../lib/swr';
@@ -32,7 +32,6 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
   const [isDrafting, setIsDrafting] = useState(false);
@@ -314,20 +313,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSelectorOpen(true)}
-                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2"
+                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2 text-left"
                 title="Change league"
               >
-                <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+                <h1 className="text-3xl font-semibold text-white text-left">{selectedLeague.name}</h1>
                 <ChevronDown className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <button
-              onClick={() => setIsActivityModalOpen(true)}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors relative"
-              title="View roster activity"
-            >
-              <Bell className="w-5 h-5 text-slate-400" />
-            </button>
           </div>
         </div>
 
@@ -401,16 +393,29 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         isFinal3ContestantEliminated={isFinal3ContestantEliminated}
       />
 
-      {/* How Points Work Section */}
-      <div className="mt-12">
+      <div className="mt-10">
         <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-2xl">How Points Work</h2>
+          <h2 className="text-2xl">Roster Activity</h2>
         </div>
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-4 sm:p-6">
+          <RosterActivityContent
+            roster={roster}
+            picks={picks}
+            seasonId={seasonId || null}
+            userId={user?.id || null}
+            leagueId={selectedLeague?.id || null}
+          />
+        </div>
+      </div>
+      <div className="h-4"></div>
 
+
+      {/* How Points Work Section */}
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6">
           <div className="space-y-6">
+            <h2 className="text-2xl">How Points Work</h2>
             <p>
-              Points are awarded weekly for the following:
+              Points are awarded weekly (24 hours after the episode airs) for the following:
             </p>
               <ul>
                 <li>Correctly Predicted Boot: +15 pts</li>
@@ -419,12 +424,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 <li>Drafted Player Finishes in Final 3: +5 pts</li>
                 <li>Drafted Player Finishes in Predicted Order: +10 pts</li>
               </ul>
-            <p>
-              Points will be posted to the app 24 hours after the episode airs to try to avoid spoiling it for you.
-            </p>
           </div>
         </div>
-      </div>
 
       {/* League Selector Drawer */}
       {selectedLeague && (
@@ -484,16 +485,6 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         />
       )}
 
-      {/* Roster Activity Modal */}
-      <RosterActivityModal
-        isOpen={isActivityModalOpen}
-        onClose={() => setIsActivityModalOpen(false)}
-        roster={roster}
-        picks={picks}
-        seasonId={seasonId || null}
-        userId={user?.id || null}
-        leagueId={selectedLeague?.id || null}
-      />
     </div>
   );
 }
