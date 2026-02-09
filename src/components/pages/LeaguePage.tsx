@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, Users, TrendingUp, TrendingDown, Minus, Crown, Award, Medal, Copy, Check, Play, Lock, Bell, ArrowUpDown } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
-import LeagueActivityModal from '../modals/LeagueActivityModal';
+import LeagueActivityContent from '../league/LeagueActivityContent';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import ContestantReplacementModal from '../modals/ContestantReplacementModal';
@@ -51,13 +51,14 @@ interface LeaguePageProps {
 export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateToRoster }: LeaguePageProps) {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isDraftOrderModalOpen, setIsDraftOrderModalOpen] = useState(false);
+  const leagueActivityRef = useRef<HTMLDivElement | null>(null);
   const [isStartDraftConfirmOpen, setIsStartDraftConfirmOpen] = useState(false);
   const [isStartingDraft, setIsStartingDraft] = useState(false);
   const [selectedUserForRoster, setSelectedUserForRoster] = useState<{ userId: string; username: string } | null>(null);
   const [isReplacementModalOpen, setIsReplacementModalOpen] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [selectedSlotType, setSelectedSlotType] = useState<'final3' | 'boot'>('final3');
   const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
@@ -161,6 +162,16 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       return;
     }
     setSelectedSlotIndex(slotIndex);
+    setSelectedSlotType('final3');
+    setIsReplacementModalOpen(true);
+  };
+
+  const handleOpenBootDraftModal = (bootSlotIndex: number, canDraftBoot: boolean) => {
+    if (!canDraftBoot || bootSlotIndex < 0) {
+      return;
+    }
+    setSelectedSlotIndex(bootSlotIndex);
+    setSelectedSlotType('boot');
     setIsReplacementModalOpen(true);
   };
 
@@ -179,10 +190,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
 
     setIsDrafting(true);
     try {
+      const pickType = selectedSlotType;
+      const weekNumberForPick = pickType === 'boot' ? nextBootWeek : undefined;
       const success = await addContestantToRoster(
         pendingContestant.id,
-        'final3',
-        selectedSlotIndex
+        pickType,
+        selectedSlotIndex,
+        weekNumberForPick
       );
 
       if (success) {
@@ -196,6 +210,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         setIsDraftConfirmOpen(false);
         setPendingContestant(null);
         setSelectedSlotIndex(null);
+        setSelectedSlotType('final3');
       } else {
         console.error('Failed to add contestant to roster');
         alert('Failed to draft contestant. Please try again.');
@@ -267,6 +282,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     seasonIdKey,
     fetcher
   );
+
+  const latestEliminationWeekKey = createKey('latest-elimination-week', seasonId);
+  const { data: latestEliminationWeek = 0 } = useSWR<number>(
+    latestEliminationWeekKey,
+    fetcher
+  );
+  const nextBootWeek = Math.max(latestEliminationWeek + 1, 1);
 
   const leagueActivityEventsKey = createKey('league-activity-events', seasonId);
   const { data: leagueActivityEvents = [] } = useSWR<LeagueActivityEvent[]>(
@@ -391,11 +413,17 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     fetcher
   );
 
+  const bootSlotIndex = roster.findIndex(slot => slot.type === 'boot');
+  const bootSlot = bootSlotIndex >= 0 ? roster[bootSlotIndex] : undefined;
+  const currentBootWeek = bootSlot?.weekNumber ?? 0;
+  const canDraftBoot = bootSlotIndex >= 0 && currentBootWeek < nextBootWeek;
+  const shouldShowBootDraftPrompt = draftStatus === 'completed' && canDraftBoot;
 
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);
   const hasPointTotals = standings.some((standing) => (standing.points ?? 0) > 0);
   const shouldShowPodium = currentWeek > 0 && hasPointTotals;
+  const shouldShowDraftHowItWorks = !(draftStatus === 'completed' && currentWeek > 0);
 
   const draftHowItWorksSection = (
     <div className={shouldShowPodium ? 'mt-12' : 'mb-8'}>
@@ -543,20 +571,22 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSelectorOpen(true)}
-                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2"
+                className="flex items-center gap-3 rounded-lg hover:bg-slate-800 transition-colors px-2 py-1 -ml-2 text-left"
                 title="Change league"
               >
-                <h1 className="text-3xl font-semibold text-white">{selectedLeague.name}</h1>
+                <h1 className="text-3xl font-semibold text-white text-left">{selectedLeague.name}</h1>
                 <ChevronDown className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <button
-              onClick={() => setIsActivityModalOpen(true)}
+            {/* <button
+              onClick={() => {
+                leagueActivityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className="p-2 rounded-lg hover:bg-slate-800 transition-colors relative"
               title="View league activity"
             >
               <Bell className="w-5 h-5 text-slate-400" />
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -594,7 +624,30 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       </div>
 
       {/* Draft Status - Show current draft round and whose turn it is */}
-      {!hasDraftStarted ? (
+      {shouldShowBootDraftPrompt ? (
+        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <h3 className="text-blue-300 font-semibold mb-1">Next Eliminated Pick</h3>
+              <p className="text-blue-200/80 text-sm mb-3">
+                Week {nextBootWeek} is open. Make your next eliminated pick before the episode airs.
+              </p>
+              <div className="h-4"></div>
+              <button
+                onClick={() => handleOpenBootDraftModal(bootSlotIndex, canDraftBoot)}
+                className="mt-4 w-full px-4 py-3 rounded-lg border-2 transition-all font-semibold hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80"
+                style={{
+                  borderColor: '#BFFF0B',
+                  backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                  color: '#BFFF0B',
+                }}
+              >
+                Make Your Pick
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : !hasDraftStarted ? (
         <div className="mb-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-xl border-2 border-amber-600/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -908,13 +961,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         )}
       </div>
-      ) : (
+      ) : shouldShowDraftHowItWorks ? (
         draftHowItWorksSection
-      )}
+      ) : null}
 
       {/* Full Standings */}
       <div>
         <h2 className="text-2xl mb-4">Standings</h2>
+        <div className="h-3"></div>
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-[40px_1fr_80px_50px] sm:grid-cols-[60px_1fr_100px_80px] gap-2 sm:gap-4 p-4 border-b border-slate-800 text-sm text-slate-400">
@@ -977,8 +1031,23 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           </div>
         </div>
       </div>
+      <div className="h-3"></div>
+      <div className="h-3"></div>
 
-      {shouldShowPodium ? (
+
+
+      <div ref={leagueActivityRef} className="mt-10">
+        <h2 className="text-2xl mb-4">League Activity</h2>
+        <div className="h-3"></div>
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+          <LeagueActivityContent
+            leagueId={selectedLeague?.id || null}
+            seasonId={seasonId || null}
+          />
+        </div>
+      </div>
+
+      {shouldShowPodium && shouldShowDraftHowItWorks ? (
         <>
           <div className="h-12"></div>
           {draftHowItWorksSection}
@@ -998,14 +1067,6 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           }}
         />
       )}
-
-      {/* League Activity Modal */}
-      <LeagueActivityModal
-        isOpen={isActivityModalOpen}
-        onClose={() => setIsActivityModalOpen(false)}
-        leagueId={selectedLeague?.id || null}
-        seasonId={seasonId || null}
-      />
 
       {/* Modify Draft Order Modal */}
       <ModifyDraftOrderModal
@@ -1027,10 +1088,11 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         onClose={() => {
           setIsReplacementModalOpen(false);
           setSelectedSlotIndex(null);
+          setSelectedSlotType('final3');
         }}
         contestants={availableContestants}
         currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
-        slotType="final3"
+        slotType={selectedSlotType}
         slotIndex={selectedSlotIndex !== null ? selectedSlotIndex : 0}
         onSelectContestant={handleSelectContestant}
         roster={roster}
@@ -1049,9 +1111,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           }}
           onConfirm={handleConfirmDraftPick}
           title="Confirm Draft Selection"
-          message={`Are you sure you want to draft ${pendingContestant.name} for Position ${
-            selectedSlotIndex + 1
-          } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`}
+          message={
+            selectedSlotType === 'boot'
+              ? `Are you sure you want to draft ${pendingContestant.name} for the Week ${nextBootWeek} Next Eliminated pick? This selection cannot be changed once confirmed.`
+              : `Are you sure you want to draft ${pendingContestant.name} for Position ${
+                  selectedSlotIndex + 1
+                } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
+          }
           confirmText="Confirm Draft"
           cancelText="Cancel"
           isLoading={isDrafting}

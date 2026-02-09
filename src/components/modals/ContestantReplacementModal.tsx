@@ -255,7 +255,7 @@ export default function ContestantReplacementModal({
                     {contestant.status === 'eliminated' && 'Eliminated'}
                     {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
                     {contestant.status === 'final3' && 'Final 3'}
-                    {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'Already Selected'}
+                    {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'In Your Final 3'}
                     {contestant.status === 'active' && 
                      !alreadySelectedContestantIds.includes(contestant.id) && 
                      positionDraftedContestantIds.includes(contestant.id) && 
