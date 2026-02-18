@@ -25,18 +25,20 @@ export const SURVIVOR_LEAGUE_NAME_PUNS = [
   "Outwit, Outplay, Outdrink",
   "Rice Negotiators",
   "Come on In Gals",
-  "Fire Making Champions",
-  "Hidden Immunity Idols Anonymous",
   "Survivor: Office Edition",
-  "Torch Snuffer Extraordinaires",
+  "Torch Snuffers",
   "Cancel Christmas! Club",
   "Mergatory",
-  "Alliance Backstabbers United",
+  "Haters v Himbos v Hecklers",
   "Survivor: Couch Edition",
   "Morality Alliance from Hell",
-  "Ponderosa Dream Team",
+  "PonderHOEsa",
   "Bottoms Up Alliance",
-  "Cops R Us"
+  "Cops R Us",
+  "Millenials vs Gen Z",
+  "Artists v Arborists v Arsonists",
+  "I'M PISSED!!!!",
+  "Comittee to Ban 'Uncle Jeff'"
 ] as const;
 
 /**
