@@ -1,3 +1,4 @@
+import React from 'react';
 import { LogIn, UserPlus, Trophy } from 'lucide-react';
 import logoImage from '../../assets/icon.png';
 import logo3D from '../../assets/tribal_bracket_icon_3d.png';
@@ -13,18 +14,20 @@ const launchDate = new Date('2026-02-25');
 
 export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps) {
   return (
-    <div className="max-w-4xl mx-auto p-4 lg:p-8 flex items-center justify-center min-h-[60vh]">
-      <div className="flex flex-col items-center justify-center">
+    <div className="max-w-4xl mx-auto p-4 lg:p-8 min-h-screen flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center">
       <section className="flex flex-col justify-center items-center">
-      <div className="max-w-md rounded-full flex items-center justify-center" style={{ width: 'clamp(15rem, 20vw, 20rem)', height: 'clamp(15rem, 20vw, 20rem)' }}>
+      <div className="max-w-md rounded-full flex items-center justify-center" style={{ width: 'clamp(15rem, 20vw, 20rem)', height: 'clamp(15rem, 20vw, 20rem)' , marginTop: '-10rem' }}>
           <img 
             src={logo3D} 
             alt="Reality Bracket Logo" 
             className="w-full h-full object-contain"
           />
-        </div>
+      </div>
         <div className="flex flex-col gap-4 items-center justify-center text-center">
-        <h2 className="text-6xl font-bold" style={{ fontSize: 'clamp(3rem, 7vw, 4rem)' }}>Outwit, Outplay, Out<span style={{ color: '#BFFF0B', fontStyle: 'italic'   }}>draft</span></h2>
+        <h1 className="text-6xl font-bold" style={{ fontSize: 'clamp(3rem, 7vw, 4rem)', marginTop: '-2rem' }}>Tribal Bracket:</h1>
+
+        <h2 className="text-6xl font-bold" style={{ fontSize: 'clamp(3rem, 7vw, 4rem)', marginTop: '-2rem' }}>Outwit, Outplay, Out<span style={{ color: '#BFFF0B', fontStyle: 'italic'   }}>draft</span></h2>
           <p className="text-lg text-slate-400" style={{ fontSize: '1.25rem'}}>
             100% free app for playing Survivor Fantasy Leagues with your tribe.
           </p>
@@ -42,6 +45,16 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
           </button>
         </div>
       </section>
+      </div>
+      <footer className="py-4 flex items-center justify-center gap-4 text-sm text-slate-400">
+        <a href="/privacy" className="hover:text-white transition-colors">
+          Privacy Policy
+        </a>
+        <span className="text-slate-600">|</span>
+        <a href="/terms" className="hover:text-white transition-colors">
+          Terms of Service
+        </a>
+      </footer>
 {/* 
       <section>
         <div className="container mx-auto px-4 text-center max-w-md">
@@ -56,7 +69,6 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
           <CountdownTimer targetDate={launchDate} />
         </div>
       </section> */}
-</div>
     </div>
   );
 }
