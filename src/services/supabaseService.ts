@@ -14,7 +14,6 @@ import type {
   ContestantScore,
 } from '../models';
 import type { League as UILeague } from '../models/types';
-import { generateSurvivorUsername } from '../models/constants';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co';
@@ -41,6 +40,27 @@ export class SupabaseService {
   // Get the Supabase client instance
   static getClient() {
     return supabase;
+  }
+
+  private static async getAuthDisplayName(): Promise<string | null> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        return null;
+      }
+
+      const metadata = user.user_metadata || {};
+      return (
+        metadata.full_name ||
+        metadata.name ||
+        metadata.username ||
+        user.email?.split('@')[0] ||
+        null
+      );
+    } catch (error) {
+      console.error('Error getting auth display name:', error);
+      return null;
+    }
   }
 
   // USER OPERATIONS
@@ -547,28 +567,9 @@ export class SupabaseService {
         throw leagueError || new Error('Failed to create league');
       }
 
-      // Generate a Survivor-themed display name for the league creator
-      let displayName: string;
-      let nameAttempts = 0;
-      let hasConflict = false;
-      do {
-        displayName = generateSurvivorUsername();
-
-        // Check if this display_name is already taken in this league
-        const { data: existingMember } = await supabase
-          .from('league_members')
-          .select('id')
-          .eq('league_id', league.id)
-          .eq('display_name', displayName)
-          .single();
-
-        if (!existingMember) {
-          hasConflict = false; // Success - name is available
-        } else {
-          hasConflict = true; // Name is taken, try again
-          nameAttempts++;
-        }
-      } while (hasConflict && nameAttempts < 5);
+      const displayName =
+        (await this.getAuthDisplayName()) ||
+        `Player ${userId.substring(0, 8)}`;
 
       // Add creator as member with display_name set to username
       const { error: memberError } = await supabase
@@ -651,12 +652,17 @@ export class SupabaseService {
         throw new Error('The draft for this league has already started. You can only join leagues before the draft begins.');
       }
 
+      const displayName =
+        (await this.getAuthDisplayName()) ||
+        `Player ${userId.substring(0, 8)}`;
+
       // Add user as member
       const { error: memberError } = await supabase
         .from('league_members')
         .insert({
           league_id: league.id,
           user_id: userId,
+          display_name: displayName,
         });
 
       if (memberError) {
