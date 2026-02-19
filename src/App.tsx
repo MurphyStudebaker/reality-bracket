@@ -5,6 +5,8 @@ import RosterPage from './components/pages/RosterPage';
 import LeaguePage from './components/pages/LeaguePage';
 import MagicLinkPage from './components/pages/MagicLinkPage';
 import PasswordResetPage from './components/pages/PasswordResetPage';
+import PrivacyPage from './components/pages/PrivacyPage';
+import TermsPage from './components/pages/TermsPage';
 import LatestActivityModal from './components/modals/LatestActivityModal';
 import ProfileModal from './components/modals/ProfileModal';
 import { useAuthViewModel } from './viewmodels/auth.viewmodel';
@@ -30,11 +32,19 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
 
-  // Check for special routes (magic link, password reset)
+  // Check for special routes (magic link, password reset, legal)
   const getCurrentRoute = () => {
     const path = window.location.pathname;
     const hash = window.location.hash;
     const hashParams = hash ? new URLSearchParams(hash.substring(1)) : new URLSearchParams();
+
+    if (path === '/privacy') {
+      return 'privacy';
+    }
+
+    if (path === '/terms') {
+      return 'terms';
+    }
 
     // Check for password reset first (more specific)
     if (path === '/reset-password' || hashParams.get('type') === 'recovery') {
@@ -162,6 +172,12 @@ export default function App() {
           )}
           {currentRoute === 'magic-link' && (
             <MagicLinkPage />
+          )}
+          {currentRoute === 'privacy' && (
+            <PrivacyPage />
+          )}
+          {currentRoute === 'terms' && (
+            <TermsPage />
           )}
           {currentRoute === 'app' && (
             <>

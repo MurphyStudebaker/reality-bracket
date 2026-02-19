@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Camera, Check, Mail, LogOut, Instagram } from 'lucide-react';
+import { X, Camera, Check, Mail, LogOut, Instagram, ArrowRight } from 'lucide-react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -29,6 +29,8 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [signupPassword, setSignupPassword] = useState('');
   const [signupUsername, setSignupUsername] = useState('');
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [showMoreLoginOptions, setShowMoreLoginOptions] = useState(false);
+  const [showMoreSignupOptions, setShowMoreSignupOptions] = useState(false);
   
   // Password reset state
   const [resetEmail, setResetEmail] = useState('');
@@ -171,6 +173,45 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
     await auth.signInWithOAuth(provider);
   };
+
+  const oauthButtons = (
+    <div className="space-y-3">
+      <Button
+        type="button"
+        onClick={() => handleOAuthSignIn('google')}
+        disabled={auth.isLoading}
+        className="w-full h-12 rounded-xl font-semibold text-slate-900 hover:opacity-90"
+        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+      >
+        <span className="mr-2 inline-flex items-center">
+          <svg
+            viewBox="0 0 48 48"
+            width="18"
+            height="18"
+            aria-hidden="true"
+          >
+            <path
+              fill="currentColor"
+              d="M24 9.5c3.3 0 6.3 1.2 8.7 3.3l6.5-6.5C35.2 2.5 29.9 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.6 5.9C12 13.2 17.6 9.5 24 9.5z"
+            />
+            <path
+              fill="currentColor"
+              d="M46.5 24.5c0-1.6-.1-2.7-.4-3.9H24v7.4h12.8c-.3 2-1.8 5-5.1 7l7.8 6.1c4.6-4.2 7-10.4 7-16.6z"
+            />
+            <path
+              fill="currentColor"
+              d="M10.2 28.6c-1-2-1.6-4.2-1.6-6.6s.6-4.6 1.6-6.6l-7.6-5.9C.9 12.8 0 16.3 0 22s.9 9.2 2.6 12.5l7.6-5.9z"
+            />
+            <path
+              fill="currentColor"
+              d="M24 44c6 0 11.1-2 14.8-5.4l-7.8-6.1c-2.1 1.5-4.9 2.6-7 2.6-6.4 0-12-3.7-14-9.1l-7.6 5.9C6.5 42.6 14.6 48 24 48z"
+            />
+          </svg>
+        </span>
+        Continue with Google
+      </Button>
+    </div>
+  );
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,149 +362,212 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     </TabsList>
 
                     <TabsContent value="login" className="mt-8">
+                      <div className="h-4"></div>
+                      {oauthButtons}
 
-                      {/* Magic Link Section */}
-                      <div className="space-y-3 mb-6">
-                        <form onSubmit={handleMagicLinkSignIn} className="space-y-3">
-                          <div>
-                            <Input
-                              type="email"
-                              value={magicLinkEmail}
-                              onChange={(e) => setMagicLinkEmail(e.target.value)}
-                              placeholder="Enter your email for magic link"
-                              required
-                              className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                            />
-                          </div>
-                          <Button
-                            type="submit"
-                            disabled={auth.isLoading || !magicLinkEmail}
-                            className="w-full h-12 rounded-xl font-medium"
-                            style={{ backgroundColor: '#BFFF0B', color: '#000' }}
-                          >
-                            {auth.isLoading ? 'Sending...' : 'Send Magic Link'}
-                          </Button>
-                        </form>
-                      </div>
+                      <div className="h-4"></div>
 
-                      <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-slate-700"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                          <span className="px-4 bg-slate-900 text-slate-400">Or continue with email and password</span>
-                        </div>
-                      </div>
-
-                      <form onSubmit={handleLogin} className="space-y-5">
-                        {auth.error && (
-                          <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
-                            {auth.error}
-                          </div>
-                        )}
-                        <div className="flex flex-col gap-3">
-                        <div>
-                          <label className="text-sm text-slate-400 mb-1 block font-medium">Email</label>
-                          <Input
-                            type="email"
-                            value={loginEmail}
-                            onChange={(e) => setLoginEmail(e.target.value)}
-                            placeholder="Enter your email"
-                            required
-                            className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
-                          <Input
-                            type="password"
-                            value={loginPassword}
-                            onChange={(e) => setLoginPassword(e.target.value)}
-                            placeholder="Enter your password"
-                            required
-                            className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                          />
-                        </div>
-                        <div className="h-2"></div>
-                        <div className="flex justify-end">
-                          {/* <button
+                      <div className="mt-6">
+                        {!showMoreLoginOptions ? (
+                          <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setResetEmail(loginEmail);
-                              handleRequestPasswordReset(e);
-                            }}
-                            className="text-sm mb-2 text-slate-400 hover:text-slate-300 underline font-medium"
+                            onClick={() => setShowMoreLoginOptions(true)}
+                            className="w-full text-sm text-slate-400 hover:text-slate-300 underline font-medium inline-flex items-center justify-center gap-2"
+                            style={{ color: 'oklch(70.4% 0.04 256.788)' }}
                           >
-                            Forgot Password?
-                          </button> */}
-                        </div>
-                        </div>
-                        <Button
-                          type="submit"
-                          disabled={auth.isLoading}
-                          className="w-full h-12 rounded-xl font-semibold"
-                          style={{ backgroundColor: '#BFFF0B', color: '#000' }}
-                        >
-                          {auth.isLoading ? 'Signing in...' : 'Sign In'}
-                        </Button>
+                            More ways to login
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <>
+                            <div className="h-4"></div>
+                            <div className="relative my-6">
+                              <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-700"></div>
+                              </div>
+                              <div className="relative flex justify-center text-sm">
+                                <span className="px-4 bg-slate-900 text-slate-400">Or use a magic link</span>
+                              </div>
+                            </div>
+                            <div className="h-4"></div>
 
-                      </form>
+                            {/* Magic Link Section */}
+                            <div className="space-y-3 mb-6">
+                              <form onSubmit={handleMagicLinkSignIn} className="space-y-3">
+                                <div>
+                                  <Input
+                                    type="email"
+                                    value={magicLinkEmail}
+                                    onChange={(e) => setMagicLinkEmail(e.target.value)}
+                                    placeholder="Enter your email for magic link"
+                                    required
+                                    className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                                  />
+                                </div>
+                                <Button
+                                  type="submit"
+                                  disabled={auth.isLoading || !magicLinkEmail}
+                                  className="w-full h-12  rounded-xl font-medium"
+                                  style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                                >
+                                  {auth.isLoading ? 'Sending...' : 'Send Magic Link'}
+                                </Button>
+                              </form>
+                            </div>
+
+                            <div className="relative my-6">
+                              <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-700"></div>
+                              </div>
+                              <div className="relative flex justify-center text-sm">
+                                <span className="px-4 bg-slate-900 text-slate-400">Or continue with email and password</span>
+                              </div>
+                            </div>
+
+                            <form onSubmit={handleLogin} className="space-y-5">
+                              {auth.error && (
+                                <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
+                                  {auth.error}
+                                </div>
+                              )}
+                              <div className="flex flex-col gap-3">
+                              <div>
+                                <label className="text-sm text-slate-400 mb-1 block font-medium">Email</label>
+                                <Input
+                                  type="email"
+                                  value={loginEmail}
+                                  onChange={(e) => setLoginEmail(e.target.value)}
+                                  placeholder="Enter your email"
+                                  required
+                                  className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
+                                <Input
+                                  type="password"
+                                  value={loginPassword}
+                                  onChange={(e) => setLoginPassword(e.target.value)}
+                                  placeholder="Enter your password"
+                                  required
+                                  className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                                />
+                              </div>
+                              <div className="h-2"></div>
+                              <div className="flex justify-end">
+                                {/* <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setResetEmail(loginEmail);
+                                    handleRequestPasswordReset(e);
+                                  }}
+                                  className="text-sm mb-2 text-slate-400 hover:text-slate-300 underline font-medium"
+                                >
+                                  Forgot Password?
+                                </button> */}
+                              </div>
+                              </div>
+                              <Button
+                                type="submit"
+                                disabled={auth.isLoading}
+                                className="w-full h-12 rounded-xl font-semibold"
+                                style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                              >
+                                {auth.isLoading ? 'Signing in...' : 'Sign In'}
+                              </Button>
+
+                            </form>
+                          </>
+                        )}
+                      </div>
                     </TabsContent>
 
                   <TabsContent value="signup" className="mt-8">
-                    <form onSubmit={handleSignup} className="space-y-8">
-                      {auth.error && (
-                        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
-                          {auth.error}
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-3">
+                    <div className="h-4"></div>
+
+                    {oauthButtons}
+                    <div className="h-4"></div>
+
+                    <div className="mt-6">
+                      {!showMoreSignupOptions ? (
                         <div>
-                        <label className="text-sm text-slate-400 mb-1 block font-medium">Username</label>
-                        <Input
-                          type="text"
-                          value={signupUsername}
-                          onChange={(e) => setSignupUsername(e.target.value)}
-                          placeholder="Choose a username"
-                          required
-                          className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-400 mb-1 mt-2 block font-medium">Email</label>
-                        <Input
-                          type="email"
-                          value={signupEmail}
-                          onChange={(e) => setSignupEmail(e.target.value)}
-                          placeholder="Enter your email"
-                          required
-                          className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
-                        <Input
-                          type="password"
-                          value={signupPassword}
-                          onChange={(e) => setSignupPassword(e.target.value)}
-                          placeholder="Create a password"
-                          required
-                          minLength={6}
-                          className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
-                        />
-                      </div>
-                      </div>
-                      <div className="h-4"></div>
-                      <Button
-                        type="submit"
-                        disabled={auth.isLoading}
-                        className="w-full h-12 rounded-xl font-semibold"
-                        style={{ backgroundColor: '#BFFF0B', color: '#000' }}
-                      >
-                        {auth.isLoading ? 'Creating account...' : 'Sign Up'}
-                      </Button>
-                    </form>
+                          {/* <div className="h-4"></div> */}
+                        <button
+                          type="button"
+                          onClick={() => setShowMoreSignupOptions(true)}
+                          className="w-full text-sm text-slate-400 hover:text-slate-300 underline font-medium inline-flex items-center justify-center gap-2"
+                          style={{ color: 'oklch(70.4% 0.04 256.788)' }}
+                        >
+                          More ways to sign up
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-slate-700"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                              <span className="px-4 bg-slate-900 text-slate-400">Or sign up with email</span>
+                            </div>
+                          </div>
+                          <form onSubmit={handleSignup} className="space-y-8">
+                            {auth.error && (
+                              <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 text-sm text-red-400">
+                                {auth.error}
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-3">
+                              <div>
+                              <label className="text-sm text-slate-400 mb-1 block font-medium">Username</label>
+                              <Input
+                                type="text"
+                                value={signupUsername}
+                                onChange={(e) => setSignupUsername(e.target.value)}
+                                placeholder="Choose a username"
+                                required
+                                className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm text-slate-400 mb-1 mt-2 block font-medium">Email</label>
+                              <Input
+                                type="email"
+                                value={signupEmail}
+                                onChange={(e) => setSignupEmail(e.target.value)}
+                                placeholder="Enter your email"
+                                required
+                                className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm text-slate-400 mb-1 block font-medium">Password</label>
+                              <Input
+                                type="password"
+                                value={signupPassword}
+                                onChange={(e) => setSignupPassword(e.target.value)}
+                                placeholder="Create a password"
+                                required
+                                minLength={6}
+                                className="bg-slate-800/50 border-slate-700 text-white rounded-xl h-12"
+                              />
+                            </div>
+                            </div>
+                            <div className="h-4"></div>
+                            <Button
+                              type="submit"
+                              disabled={auth.isLoading}
+                              className="w-full h-12 rounded-xl font-semibold"
+                              style={{ backgroundColor: '#BFFF0B', color: '#000' }}
+                            >
+                              {auth.isLoading ? 'Creating account...' : 'Sign Up'}
+                            </Button>
+                          </form>
+                        </>
+                      )}
+                    </div>
                   </TabsContent>
                 </Tabs>
                 )}
