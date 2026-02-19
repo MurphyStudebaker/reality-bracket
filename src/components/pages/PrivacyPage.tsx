@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
   return (
-    <div className="max-w-3xl mx-auto p-6 lg:p-10">
+    <div className="max-w-4xl mx-auto p-4 lg:p-8">
       <div className="mb-6">
         <a
           href="/"
@@ -10,7 +10,7 @@ export default function PrivacyPage() {
         </a>
       </div>
 
-      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 lg:p-8 space-y-8">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 lg:p-8 space-y-4">
         <header className="space-y-2">
           <h1 className="text-3xl lg:text-4xl font-semibold" style={{ color: '#BFFF0B' }}>
             Privacy Policy
@@ -29,6 +29,7 @@ export default function PrivacyPage() {
             type, browser, and usage data to improve performance and reliability.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">How We Use Information</h2>
@@ -38,6 +39,7 @@ export default function PrivacyPage() {
             information.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Sharing</h2>
@@ -47,6 +49,7 @@ export default function PrivacyPage() {
             legal obligations or protect the safety of users.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Data Retention</h2>
@@ -56,6 +59,7 @@ export default function PrivacyPage() {
             by contacting support.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Security</h2>
@@ -64,6 +68,7 @@ export default function PrivacyPage() {
             information. No system is completely secure, so we cannot guarantee absolute security.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Your Choices</h2>
@@ -73,6 +78,7 @@ export default function PrivacyPage() {
             options provided in the app.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Children&apos;s Privacy</h2>
@@ -81,6 +87,7 @@ export default function PrivacyPage() {
             personal information from children under 13.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Changes to This Policy</h2>

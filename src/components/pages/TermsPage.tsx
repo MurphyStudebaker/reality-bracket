@@ -1,6 +1,6 @@
 export default function TermsPage() {
   return (
-    <div className="max-w-3xl mx-auto p-6 lg:p-10">
+    <div className="max-w-4xl mx-auto p-4 lg:p-8">
       <div className="mb-6">
         <a
           href="/"
@@ -10,7 +10,7 @@ export default function TermsPage() {
         </a>
       </div>
 
-      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 lg:p-8 space-y-8">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 lg:p-8 space-y-4">
         <header className="space-y-2">
           <h1 className="text-3xl lg:text-4xl font-semibold" style={{ color: '#BFFF0B' }}>
             Terms of Service
@@ -29,6 +29,7 @@ export default function TermsPage() {
             these terms.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Account Responsibilities</h2>
@@ -37,6 +38,7 @@ export default function TermsPage() {
             your login credentials secure. Notify us promptly if you suspect unauthorized access.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Acceptable Use</h2>
@@ -45,6 +47,7 @@ export default function TermsPage() {
             non-public areas. You may only use Reality Bracket in accordance with applicable laws.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Content and League Data</h2>
@@ -54,6 +57,7 @@ export default function TermsPage() {
             the service.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Service Availability</h2>
@@ -62,6 +66,7 @@ export default function TermsPage() {
             We may modify, suspend, or discontinue features at any time.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Termination</h2>
@@ -70,6 +75,7 @@ export default function TermsPage() {
             necessary to protect the service or users. You may stop using the app at any time.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Disclaimers</h2>
@@ -79,6 +85,7 @@ export default function TermsPage() {
             purpose, and non-infringement.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Limitation of Liability</h2>
@@ -88,6 +95,7 @@ export default function TermsPage() {
             app.
           </p>
         </section>
+        <div className="h-4" />
 
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Changes to These Terms</h2>
