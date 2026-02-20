@@ -189,17 +189,11 @@ export class SupabaseService {
       // Use the password reset route - Supabase will automatically append the access_token
       // and type=recovery to the hash fragment when redirecting
       const resetUrl = redirectTo || `${window.location.origin}/reset-password`;
-      console.log('Sending password reset email:', {
-        email,
-        redirectTo: resetUrl,
-        origin: window.location.origin
-      });
 
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: resetUrl,
       });
 
-      console.log('Password reset response:', { data, error });
 
       if (error) {
         console.error('Error resetting password:', error);
@@ -894,7 +888,6 @@ export class SupabaseService {
             console.error('Failed to advance draft turn after pick. LeagueId:', leagueId, 'UserId:', userId);
             // Don't throw error here - the pick was successful, we just need to log the issue
           } else {
-            console.log('Successfully advanced draft turn. LeagueId:', leagueId);
           }
         } catch (error) {
           console.error('Error advancing draft turn:', error);
@@ -976,7 +969,6 @@ export class SupabaseService {
         if (memberError) {
           console.error('Error fetching league members:', memberError);
         } else {
-          console.log('No league members found for league:', leagueId);
         }
         return [];
       }
@@ -1015,7 +1007,6 @@ export class SupabaseService {
         rank: index + 1,
       }));
 
-      console.log('Standings:', standings);
       return standings;
     } catch (error) {
       console.error('Error in getLeagueStandings:', error);
@@ -1060,11 +1051,6 @@ export class SupabaseService {
   ): Promise<boolean> {
     try {
       const trimmedName = displayName.trim();
-      console.log('Updating display name in Supabase:', {
-        userId,
-        leagueId,
-        displayName: trimmedName || null
-      });
 
       const { data, error } = await supabase
         .from('league_members')
@@ -1086,7 +1072,6 @@ export class SupabaseService {
         return false;
       }
 
-      console.log('Display name updated successfully:', data);
       return true;
     } catch (error) {
       console.error('Error in updateLeagueDisplayName:', error);
@@ -1229,7 +1214,6 @@ export class SupabaseService {
         return false;
       }
 
-      console.log('Draft started successfully for league:', leagueId);
       return true;
     } catch (error) {
       console.error('Error in startDraft:', error);
@@ -1292,7 +1276,6 @@ export class SupabaseService {
   // Advance the draft turn to the next player
   static async advanceDraftTurn(leagueId: string): Promise<boolean> {
     try {
-      console.log('advanceDraftTurn called for leagueId:', leagueId);
       
       // Get current draft turn info
       const { data: league, error: leagueError } = await supabase
@@ -1306,11 +1289,6 @@ export class SupabaseService {
         return false;
       }
 
-      console.log('Current draft state:', {
-        position: league.current_draft_position,
-        pickNumber: league.current_draft_pick_number,
-        userId: league.current_draft_user_id
-      });
 
       // Get all league members in draft order
       const { data: members, error: membersError } = await supabase
@@ -1376,11 +1354,6 @@ export class SupabaseService {
           nextPositionDraftOrder = members.map(m => m.user_id);
         }
 
-        console.log('Moving to next position:', {
-          nextPosition,
-          nextPlayerId: nextPositionDraftOrder[0],
-          nextPositionDraftOrder
-        });
 
         const { data: updatedLeague, error: updateError } = await supabase
           .from('leagues')
@@ -1398,11 +1371,6 @@ export class SupabaseService {
           return false;
         }
 
-        console.log('Successfully moved to next position. New state:', {
-          position: updatedLeague.current_draft_position,
-          pickNumber: updatedLeague.current_draft_pick_number,
-          userId: updatedLeague.current_draft_user_id
-        });
 
         return true;
       }
@@ -1415,11 +1383,6 @@ export class SupabaseService {
         return false;
       }
 
-      console.log('Advancing to next player:', {
-        nextPlayerId,
-        nextPickNumber: currentPickNumber + 1,
-        currentPosition
-      });
 
       const { data: updatedLeague, error: updateError } = await supabase
         .from('leagues')
@@ -1436,11 +1399,6 @@ export class SupabaseService {
         return false;
       }
 
-      console.log('Successfully advanced draft turn. New state:', {
-        position: updatedLeague.current_draft_position,
-        pickNumber: updatedLeague.current_draft_pick_number,
-        userId: updatedLeague.current_draft_user_id
-      });
 
       return true;
     } catch (error) {
@@ -1530,7 +1488,6 @@ export class SupabaseService {
         };
       });
 
-      console.log('Fallback standings:', standings);
       return standings;
     } catch (error) {
       console.error('Error in fallback method:', error);

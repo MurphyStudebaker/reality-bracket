@@ -101,9 +101,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     
     setIsStartingDraft(true);
     try {
-      console.log('Starting draft for league:', selectedLeague.id);
       const success = await SupabaseService.startDraft(selectedLeague.id);
-      console.log('Start draft result:', success);
       
       if (success) {
         setIsStartDraftConfirmOpen(false);

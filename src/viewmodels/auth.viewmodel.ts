@@ -116,10 +116,7 @@ export const useAuthViewModel = () => {
     try {
       setError(null);
       setIsLoading(true);
-      console.log('Requesting password reset for:', email);
-      console.log('Redirect URL will be:', `${window.location.origin}/reset-password`);
       await SupabaseService.resetPasswordForEmail(email);
-      console.log('Password reset email sent successfully');
       setIsPasswordResetRequested(true);
       return true;
     } catch (err: any) {
@@ -201,7 +198,6 @@ export const useAuthViewModel = () => {
         // Check if this is a password recovery flow
         // Supabase adds type=recovery and access_token to the hash when redirecting from password reset email
         if (type === 'recovery' && accessToken) {
-          console.log('Password recovery detected in URL hash');
           if (mounted) {
             setIsPasswordRecovery(true);
           }
@@ -220,13 +216,11 @@ export const useAuthViewModel = () => {
         const supabase = SupabaseService.getClient();
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        console.log('Checking initial session:', { hasSession: !!session, hasUser: !!session?.user, error });
         
         if (!mounted) return;
         
         if (session?.user && !error) {
           // We have a valid session, use it directly to avoid network call
-          console.log('Session found, restoring user...');
           // Create user object directly from session to avoid hanging on getUser()
           const username = session.user.user_metadata?.username || 
                            session.user.email?.split('@')[0] || 
@@ -238,7 +232,6 @@ export const useAuthViewModel = () => {
             createdAt: session.user.created_at || new Date().toISOString(),
           };
           
-          console.log('User restored from session:', userFromSession.username);
           if (mounted) {
             setUser(userFromSession);
             setIsLoading(false);
@@ -246,7 +239,6 @@ export const useAuthViewModel = () => {
           }
         } else {
           // No session found
-          console.log('No session found');
           if (mounted) {
             setUser(null);
             setIsLoading(false);
@@ -267,7 +259,6 @@ export const useAuthViewModel = () => {
     const supabase = SupabaseService.getClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session ? 'has session' : 'no session');
         
         if (!mounted) return;
 

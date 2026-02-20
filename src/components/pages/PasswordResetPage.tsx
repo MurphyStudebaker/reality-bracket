@@ -18,9 +18,6 @@ export default function PasswordResetPage() {
     const handlePasswordResetFlow = async () => {
       try {
         // Log the current URL for debugging
-        console.log('Password reset page loaded with URL:', window.location.href);
-        console.log('Hash:', window.location.hash);
-        console.log('Search:', window.location.search);
 
         // Check if we have password recovery parameters
         const hash = window.location.hash;
@@ -31,12 +28,6 @@ export default function PasswordResetPage() {
                                  hashParams.has('access_token') ||
                                  searchParams.has('token');
 
-        console.log('Password recovery parameters:', {
-          hashParams: Object.fromEntries(hashParams),
-          searchParams: Object.fromEntries(searchParams),
-          hasRecoveryParams,
-          isPasswordRecovery: auth.isPasswordRecovery
-        });
 
         if (!hasRecoveryParams && !auth.isPasswordRecovery) {
           setIsValidToken(false);
@@ -47,26 +38,14 @@ export default function PasswordResetPage() {
         const supabase = SupabaseService.getClient();
         let { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        console.log('Initial password reset session check:', {
-          hasSession: !!session,
-          user: session?.user?.email,
-          error: sessionError,
-          isPasswordRecovery: auth.isPasswordRecovery
-        });
 
         // If no session but we have recovery parameters, try to establish session from URL
         if (!session && hasRecoveryParams) {
-          console.log('Attempting to establish session from URL tokens...');
 
           // For password reset, we might need to manually refresh the session or handle the URL
           // Let's try to refresh the session to pick up any URL-based auth
           const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
 
-          console.log('Session refresh result:', {
-            hasRefreshedSession: !!refreshedSession,
-            user: refreshedSession?.user?.email,
-            error: refreshError
-          });
 
           if (refreshedSession) {
             session = refreshedSession;
@@ -75,10 +54,6 @@ export default function PasswordResetPage() {
             await new Promise(resolve => setTimeout(resolve, 500));
             const { data: { session: retrySession } } = await supabase.auth.getSession();
             session = retrySession;
-            console.log('Retry session check:', {
-              hasSession: !!session,
-              user: session?.user?.email
-            });
           }
         }
 
@@ -90,23 +65,15 @@ export default function PasswordResetPage() {
 
         // Check if we have a valid session for password update
         if (session?.user || auth.isPasswordRecovery) {
-          console.log('Password reset session is valid');
           setIsValidToken(true);
         } else {
-          console.log('No valid session found, checking again in 2 seconds...');
           // Wait for auth state to update
           setTimeout(async () => {
             const { data: { session: delayedSession } } = await supabase.auth.getSession();
-            console.log('Delayed session check:', {
-              hasSession: !!delayedSession,
-              user: delayedSession?.user?.email,
-              isPasswordRecovery: auth.isPasswordRecovery
-            });
 
             if (delayedSession?.user || auth.isPasswordRecovery) {
               setIsValidToken(true);
             } else {
-              console.log('No valid session found after delay - password reset will fail');
               setIsValidToken(false);
             }
           }, 2000);
@@ -132,12 +99,6 @@ export default function PasswordResetPage() {
     const supabase = SupabaseService.getClient();
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    console.log('Pre-password-update session check:', {
-      hasSession: !!session,
-      user: session?.user?.email,
-      error: sessionError,
-      isPasswordRecovery: auth.isPasswordRecovery
-    });
 
     if (!session && !auth.isPasswordRecovery) {
       setErrorMessage('No valid authentication session found. Please request a new password reset link.');
