@@ -103,7 +103,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
 
     const displayName = tempDisplayName.trim();
-    console.log('Saving display name:', { userId: auth.user.id, leagueId, displayName });
     
     const success = await SupabaseService.updateLeagueDisplayName(
       auth.user.id,
@@ -111,7 +110,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       displayName
     );
 
-    console.log('Update result:', success);
 
     if (success) {
       // Invalidate and revalidate display names cache

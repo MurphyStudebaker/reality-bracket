@@ -15,9 +15,6 @@ export default function MagicLinkPage() {
     const handleMagicLink = async () => {
       try {
         // Log the current URL for debugging
-        console.log('Magic link page loaded with URL:', window.location.href);
-        console.log('Hash:', window.location.hash);
-        console.log('Search:', window.location.search);
 
         // Check if we have any auth-related parameters
         const hash = window.location.hash;
@@ -30,11 +27,6 @@ export default function MagicLinkPage() {
                              hashParams.get('type') === 'magiclink' ||
                              hashParams.get('type') === 'signup';
 
-        console.log('Auth parameters found:', {
-          hashParams: Object.fromEntries(hashParams),
-          searchParams: Object.fromEntries(searchParams),
-          hasAuthParams
-        });
 
         if (!hasAuthParams) {
           setStatus('error');
@@ -46,11 +38,6 @@ export default function MagicLinkPage() {
         const supabase = SupabaseService.getClient();
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        console.log('Session check result:', {
-          hasSession: !!session,
-          user: session?.user?.email,
-          error: sessionError
-        });
 
         if (sessionError) {
           console.error('Session error:', sessionError);
@@ -60,7 +47,6 @@ export default function MagicLinkPage() {
         }
 
         if (session?.user) {
-          console.log('Magic link authentication successful');
           setStatus('success');
           setTimeout(() => {
             window.location.href = '/';
@@ -69,13 +55,11 @@ export default function MagicLinkPage() {
           // Wait a bit more for the auth state to update
           setTimeout(() => {
             if (auth.isAuthenticated) {
-              console.log('Magic link authentication successful (delayed)');
               setStatus('success');
               setTimeout(() => {
                 window.location.href = '/';
               }, 2000);
             } else {
-              console.log('Magic link authentication failed');
               setStatus('error');
               setErrorMessage(auth.error || 'Authentication failed. The magic link may be invalid or expired.');
             }

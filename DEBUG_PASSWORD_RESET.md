@@ -83,9 +83,6 @@ Add this to your browser console after the page loads:
 ```javascript
 // Check what Supabase sees
 const hash = window.location.hash;
-console.log('Full URL:', window.location.href);
-console.log('Hash:', hash);
-console.log('Hash params:', new URLSearchParams(hash.substring(1)));
 
 // Check Supabase session
 const { createClient } = await import('@supabase/supabase-js');
@@ -94,7 +91,6 @@ const supabase = createClient(
   'YOUR_SUPABASE_ANON_KEY'
 );
 const { data: { session } } = await supabase.auth.getSession();
-console.log('Session:', session);
 ```
 
 ## Common Issues & Solutions
