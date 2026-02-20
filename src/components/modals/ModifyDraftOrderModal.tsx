@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, GripVertical, Save } from 'lucide-react';
+import { X, GripVertical, Save, Shuffle } from 'lucide-react';
 import useSWR from 'swr';
 import BaseModal from './BaseModal';
 import { SupabaseService } from '../../services/supabaseService';
@@ -29,6 +29,7 @@ export default function ModifyDraftOrderModal({
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const prevFetchedMembersRef = useRef<string>('');
 
   // Fetch league members for draft order
@@ -81,6 +82,19 @@ export default function ModifyDraftOrderModal({
       setMembers([]);
     }
   }, [fetchedMembers, isLoading, isOpen, leagueId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const handleChange = () => setIsDesktop(mediaQuery.matches);
+    handleChange();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -166,6 +180,18 @@ export default function ModifyDraftOrderModal({
     }
   };
 
+  const handleShuffle = () => {
+    setMembers(prevMembers => {
+      if (prevMembers.length <= 1) return prevMembers;
+      const nextMembers = [...prevMembers];
+      for (let i = nextMembers.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nextMembers[i], nextMembers[j]] = [nextMembers[j], nextMembers[i]];
+      }
+      return nextMembers;
+    });
+  };
+
   if (!isOpen) return null;
 
   const displayName = (member: DraftOrderMember) => 
@@ -176,7 +202,7 @@ export default function ModifyDraftOrderModal({
       <div>
         <h2 className="text-xl">Modify Draft Order</h2>
         <p className="text-sm text-slate-400 mt-1">
-          Drag and drop to reorder. Default order is based on join date.
+          { isDesktop ? 'Drag and drop to reorder. Default order is based on join date.' : 'Use a desktop to manually set the draft order.' }
         </p>
       </div>
       <button
@@ -218,6 +244,81 @@ export default function ModifyDraftOrderModal({
     </div>
   );
 
+  const bodyContent = isLoading ? (
+    <div className="flex items-center justify-center py-8">
+      <div className="text-slate-400">Loading members...</div>
+    </div>
+  ) : members.length === 0 ? (
+    <div className="text-center text-slate-400 py-8">
+      <p>No league members found.</p>
+    </div>
+  ) : (
+    <>
+      <div className="mb-4">
+        <Button
+          onClick={handleShuffle}
+          disabled={isSaving || isLoading || members.length === 0}
+          variant="outline"
+          className="w-full px-6 py-8 rounded-xl border-2 transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80"
+          style={{
+                borderColor: '#64748b',
+                backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                color: '#94a3b8',
+                padding: '2rem',
+          }}
+        >
+          <Shuffle className="w-4 h-4 mr-2" />
+          Shuffle Draft Order
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {members.map((member, index) => (
+          <div
+            key={member.id}
+            draggable={isDesktop}
+            onDragStart={isDesktop ? () => handleDragStart(index) : undefined}
+            onDragOver={isDesktop ? (e) => handleDragOver(e, index) : undefined}
+            onDragEnd={isDesktop ? handleDragEnd : undefined}
+            onPointerDown={isDesktop ? (e) => handlePointerDown(e, index) : undefined}
+            onPointerMove={isDesktop ? handlePointerMove : undefined}
+            onPointerUp={isDesktop ? handlePointerUp : undefined}
+            onPointerCancel={isDesktop ? handlePointerUp : undefined}
+            data-draft-index={index}
+            className={`
+              bg-slate-800/50 rounded-xl p-4 ${isDesktop ? 'cursor-move' : 'cursor-default'}
+              transition-all hover:bg-slate-800
+              ${draggedIndex === index ? 'opacity-50' : ''}
+            `}
+          >
+            <div className="flex items-center gap-3">
+              {isDesktop && (
+                <div className="flex-shrink-0">
+                  <GripVertical className="w-5 h-5 text-slate-500" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-300">
+                    {index + 1}.
+                  </span>
+                  <span className="text-sm font-medium text-white truncate">
+                    {displayName(member)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const body = (
+    <div style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+      {bodyContent}
+    </div>
+  );
+
   return (
     <BaseModal
       isOpen={isOpen}
@@ -225,55 +326,8 @@ export default function ModifyDraftOrderModal({
       header={header}
       bodyClassName="p-6 lg:p-8"
       footer={footer}
-    >
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-slate-400">Loading members...</div>
-        </div>
-      ) : members.length === 0 ? (
-        <div className="text-center text-slate-400 py-8">
-          <p>No league members found.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {members.map((member, index) => (
-            <div
-              key={member.id}
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
-              onPointerDown={(e) => handlePointerDown(e, index)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              data-draft-index={index}
-              className={`
-                bg-slate-800/50 rounded-xl p-4 cursor-move
-                transition-all hover:bg-slate-800
-                ${draggedIndex === index ? 'opacity-50' : ''}
-              `}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0">
-                  <GripVertical className="w-5 h-5 text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-300">
-                      {index + 1}.
-                    </span>
-                    <span className="text-sm font-medium text-white truncate">
-                      {displayName(member)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </BaseModal>
+      children={body}
+    />
   );
 }
 
