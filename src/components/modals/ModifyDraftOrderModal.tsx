@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, GripVertical, Save, Shuffle } from 'lucide-react';
+import { usePostHog } from '@posthog/react';
 import useSWR from 'swr';
 import BaseModal from './BaseModal';
 import { SupabaseService } from '../../services/supabaseService';
@@ -26,11 +27,13 @@ export default function ModifyDraftOrderModal({
   onClose,
   leagueId,
 }: ModifyDraftOrderModalProps) {
+  const posthog = usePostHog();
   const [members, setMembers] = useState<DraftOrderMember[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const prevFetchedMembersRef = useRef<string>('');
+  const dragStartIndexRef = useRef<number | null>(null);
 
   // Fetch league members for draft order
   const membersKey = createKey('draft-order-members', leagueId);
@@ -97,6 +100,7 @@ export default function ModifyDraftOrderModal({
   }, []);
 
   const handleDragStart = (index: number) => {
+    dragStartIndexRef.current = index;
     setDraggedIndex(index);
   };
 
@@ -118,7 +122,24 @@ export default function ModifyDraftOrderModal({
     setDraggedIndex(index);
   };
 
+  const captureManualReorder = (inputMethod: 'desktop_drag' | 'touch_drag') => {
+    const fromIndex = dragStartIndexRef.current;
+    if (fromIndex === null || draggedIndex === null || fromIndex === draggedIndex || !leagueId) {
+      return;
+    }
+
+    posthog.capture('league_order_dragged_and_dropped', {
+      league_id: leagueId,
+      from_position: fromIndex + 1,
+      to_position: draggedIndex + 1,
+      member_count: members.length,
+      input_method: inputMethod,
+    });
+  };
+
   const handleDragEnd = () => {
+    captureManualReorder('desktop_drag');
+    dragStartIndexRef.current = null;
     setDraggedIndex(null);
   };
 
@@ -126,6 +147,7 @@ export default function ModifyDraftOrderModal({
     if (e.pointerType !== 'touch') return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStartIndexRef.current = index;
     setDraggedIndex(index);
   };
 
@@ -150,6 +172,8 @@ export default function ModifyDraftOrderModal({
   const handlePointerUp = (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return;
     e.preventDefault();
+    captureManualReorder('touch_drag');
+    dragStartIndexRef.current = null;
     setDraggedIndex(null);
   };
 
@@ -181,6 +205,13 @@ export default function ModifyDraftOrderModal({
   };
 
   const handleShuffle = () => {
+    if (leagueId) {
+      posthog.capture('league_order_randomized', {
+        league_id: leagueId,
+        member_count: members.length,
+      });
+    }
+
     setMembers(prevMembers => {
       if (prevMembers.length <= 1) return prevMembers;
       const nextMembers = [...prevMembers];
