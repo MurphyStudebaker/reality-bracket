@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Users, Trophy, Bell, UserCircle, LogIn } from 'lucide-react';
+import { usePostHog } from '@posthog/react';
 import HomePage from './components/pages/HomePage';
 import RosterPage from './components/pages/RosterPage';
 import LeaguePage from './components/pages/LeaguePage';
@@ -26,6 +27,7 @@ type League = {
 export default function App() {
   // Initialize auth at app level to restore session on page load
   const auth = useAuthViewModel();
+  const posthog = usePostHog();
 
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [isLatestActivityModalOpen, setIsLatestActivityModalOpen] = useState(false);
@@ -77,6 +79,16 @@ export default function App() {
   const handleNavigation = (screen: ScreenType) => {
     // Only allow navigation if authenticated
     if (auth.isAuthenticated) {
+      if (screen === 'roster') {
+        posthog.capture('roster_tab_clicked', {
+          from_screen: currentScreen,
+        });
+      }
+      if (screen === 'league') {
+        posthog.capture('leagues_tab_clicked', {
+          from_screen: currentScreen,
+        });
+      }
       setCurrentScreen(screen);
     }
   };

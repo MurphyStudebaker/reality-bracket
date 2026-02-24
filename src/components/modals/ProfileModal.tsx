@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Camera, Check, Mail, LogOut, Instagram, ArrowRight } from 'lucide-react';
+import { usePostHog } from '@posthog/react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
@@ -18,6 +19,7 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const auth = useAuthViewModel();
+  const posthog = usePostHog();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingLeagueId, setEditingLeagueId] = useState<string | null>(null);
   const [tempDisplayName, setTempDisplayName] = useState('');
@@ -112,6 +114,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
 
     if (success) {
+      posthog.capture('profile_display_name_edited', {
+        league_id: leagueId,
+        has_display_name: displayName.length > 0,
+      });
+
       // Invalidate and revalidate display names cache
       if (displayNamesKey) {
         await mutateDisplayNames();
