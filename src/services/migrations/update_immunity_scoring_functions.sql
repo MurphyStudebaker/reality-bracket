@@ -1,6 +1,7 @@
 -- Update scoring RPC functions to support split immunity scoring.
 -- tribal_immunity: 5 points (final3 picks)
 -- individual_immunity: 10 points (final3 picks)
+-- found_immunity_idol: 10 points (final3 picks)
 -- Backward compatibility: legacy immunity still counts as 10 points.
 
 CREATE OR REPLACE FUNCTION public.calculate_pick_points(
@@ -28,7 +29,7 @@ AS $$
           THEN 5
 
         WHEN rp.pick_type = 'final3'
-          AND ae.activity_type IN ('individual_immunity', 'immunity')
+          AND ae.activity_type IN ('individual_immunity', 'found_immunity_idol', 'immunity')
           THEN 10
 
         WHEN rp.pick_type = 'final3'
@@ -76,7 +77,7 @@ AS $$
           THEN 5
 
         WHEN rp.pick_type = 'final3'
-          AND ae.activity_type IN ('individual_immunity', 'immunity')
+          AND ae.activity_type IN ('individual_immunity', 'found_immunity_idol', 'immunity')
           THEN 10
 
         WHEN rp.pick_type = 'final3'

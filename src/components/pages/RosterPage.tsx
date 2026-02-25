@@ -420,7 +420,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
               <ul>
                 <li>Correctly Predicted Boot: +15 pts</li>
                 <li>Drafted Player has Tribal Immunity: +5 pts</li>
-                <li>Drafted Player wins Individual Immunity (or Idol): +10 pts</li>
+                <li>Drafted Player wins Individual Immunity: +10 pts</li>
+                <li>Drafted Player finds an Immunity Idol: +10 pts</li>
                 <li>Drafted Player Makes Jury: +5 pts</li>
                 <li>Drafted Player Finishes in Final 3: +5 pts</li>
                 <li>Drafted Player Finishes in Predicted Order: +10 pts</li>

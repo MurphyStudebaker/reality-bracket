@@ -211,6 +211,7 @@ CREATE POLICY "Users can read league activity"
 Points are awarded as follows:
 - **Tribal Immunity**: +5 points
 - **Individual Immunity**: +10 points
+- **Finding Immunity Idol**: +10 points
 - **Making Jury**: +5 points
 - **Final 3**: +5 points
 - **Finishing in Predicted Order**: +10 points
