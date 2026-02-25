@@ -7,6 +7,8 @@ export const tribeColors: Record<string, string> = {
 };
 
 export const eventColors: Record<string, string> = {
+  tribal_immunity: "text-blue-400",
+  individual_immunity: "text-cyan-300",
   immunity: "text-blue-400",
   strategic: "text-purple-400",
   reward: "text-[#BFFF0B]",

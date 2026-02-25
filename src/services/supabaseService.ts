@@ -1581,7 +1581,7 @@ export class SupabaseService {
     seasonId: string,
     contestantId: string,
     weekNumber: number,
-    activityType: 'immunity' | 'eliminated' | 'medical_evacuated' | 'made_merge' | 'made_final_three' | 'made_jury'
+    activityType: 'tribal_immunity' | 'individual_immunity' | 'eliminated' | 'medical_evacuated' | 'made_merge' | 'made_final_three' | 'made_jury'
   ): Promise<{ id: string } | null> {
     try {
       const { data, error } = await supabase

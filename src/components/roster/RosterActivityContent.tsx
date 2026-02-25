@@ -98,8 +98,10 @@ export default function RosterActivityContent({
             points = 15;
           }
         } else if (pickType === 'final3') {
-          // Final 3 pick: +10 for immunity, +5 for made_jury, +5 for made_final_three
-          if (event.activityType === 'immunity') {
+          // Final 3 pick: +5 for tribal immunity, +10 for individual immunity, +5 for made_jury, +5 for made_final_three
+          if (event.activityType === 'tribal_immunity') {
+            points = 5;
+          } else if (event.activityType === 'individual_immunity' || event.activityType === 'immunity') {
             points = 10;
           } else if (event.activityType === 'made_jury') {
             points = 5;
@@ -128,6 +130,8 @@ export default function RosterActivityContent({
   // Format activity type for display
   const formatActivityType = (type: string): string => {
     const typeMap: Record<string, string> = {
+      'tribal_immunity': 'Tribal Immunity',
+      'individual_immunity': 'Individual Immunity',
       'immunity': 'Immunity',
       'eliminated': 'Eliminated',
       'medical_evacuated': 'Medical Evacuation',
