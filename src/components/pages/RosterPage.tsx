@@ -368,7 +368,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             <div className="flex-1">
               <h3 className="text-amber-300 font-semibold mb-1">Draft Has Not Started</h3>
               <p className="text-amber-200/80 text-sm">
-                The draft has not started yet. You'll be able to draft players once the draft is opened.
+                The draft has not started yet. You'll be able to draft players once the league commissioner opens the draft from the Leagues page.
               </p>
             </div>
           </div>
@@ -419,7 +419,9 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             </p>
               <ul>
                 <li>Correctly Predicted Boot: +15 pts</li>
-                <li>Drafted Player is Immune: +10 pts</li>
+                <li>Drafted Player has Tribal Immunity: +5 pts</li>
+                <li>Drafted Player wins Individual Immunity: +10 pts</li>
+                <li>Drafted Player finds an Immunity Idol: +10 pts</li>
                 <li>Drafted Player Makes Jury: +5 pts</li>
                 <li>Drafted Player Finishes in Final 3: +5 pts</li>
                 <li>Drafted Player Finishes in Predicted Order: +10 pts</li>

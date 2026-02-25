@@ -85,8 +85,14 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
             points = 15;
           }
         } else if (pick.pickType === 'final3') {
-          // Final 3 pick: +10 for immunity, +5 for made_jury, +5 for made_final_three
-          if (event.activityType === 'immunity') {
+          // Final 3 pick: +5 tribal immunity, +10 individual immunity/idol, +5 made_jury, +5 made_final_three
+          if (event.activityType === 'tribal_immunity') {
+            points = 5;
+          } else if (
+            event.activityType === 'individual_immunity' ||
+            event.activityType === 'found_immunity_idol' ||
+            event.activityType === 'immunity'
+          ) {
             points = 10;
           } else if (event.activityType === 'made_jury') {
             points = 5;
@@ -127,6 +133,9 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
   // Format activity type for display
   const formatActivityType = (type: string): string => {
     const typeMap: Record<string, string> = {
+      'tribal_immunity': 'Tribal Immunity',
+      'individual_immunity': 'Individual Immunity',
+      'found_immunity_idol': 'Found Immunity Idol',
       'immunity': 'Immunity',
       'eliminated': 'Eliminated',
       'medical_evacuated': 'Medical Evacuation',
