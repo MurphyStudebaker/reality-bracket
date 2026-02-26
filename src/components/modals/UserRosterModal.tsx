@@ -93,14 +93,19 @@ export default function UserRosterModal({
     ];
 
     if (picks && picks.length > 0) {
-      const final3Picks = picks.filter(p => p.pickType === 'final3');
-      const bootPicks = picks.filter(p => p.pickType === 'boot');
+      const final3Picks = picks
+        .filter(p => p.pickType === 'final3' && p.contestant)
+        .sort((a, b) => (a.final3Position ?? 99) - (b.final3Position ?? 99));
+      const bootPicks = picks
+        .filter(p => p.pickType === 'boot' && p.contestant)
+        .sort((a, b) => (b.weekNumber ?? 0) - (a.weekNumber ?? 0));
       
       final3Picks.forEach((pick, index) => {
-        if (index < 3 && pick.contestant) {
-          rosterSlots[index].contestant = pick.contestant;
-          rosterSlots[index].points = pickPointsMap[pick.id] || 0;
-          rosterSlots[index].pickId = pick.id;
+        const positionIndex = pick.final3Position ? pick.final3Position - 1 : index;
+        if (positionIndex >= 0 && positionIndex < 3 && pick.contestant) {
+          rosterSlots[positionIndex].contestant = pick.contestant;
+          rosterSlots[positionIndex].points = pickPointsMap[pick.id] || 0;
+          rosterSlots[positionIndex].pickId = pick.id;
         }
       });
       
