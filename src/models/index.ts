@@ -45,6 +45,9 @@ export interface RosterPick {
   contestantId: string;
   pickType: 'final3' | 'boot';
   weekNumber?: number;
+  final3Position?: number;
+  activeFromWeek?: number;
+  activeThroughWeek?: number;
   pickedAt: string;
 }
 

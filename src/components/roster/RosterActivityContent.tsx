@@ -86,6 +86,7 @@ export default function RosterActivityContent({
     return rawEvents
       .map((event) => {
         const pickType = contestantPickTypeMap[event.contestantId];
+        const pickWeekNumber = contestantMetadata[event.contestantId]?.weekNumber;
         if (!pickType) {
           return { ...event, points: 0 };
         }
@@ -94,7 +95,10 @@ export default function RosterActivityContent({
         let points = 0;
         if (pickType === 'boot') {
           // Boot pick: +15 pts for eliminated or medical_evacuated
-          if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
+          if (
+            pickWeekNumber === event.weekNumber &&
+            (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated')
+          ) {
             points = 15;
           }
         } else if (pickType === 'final3') {

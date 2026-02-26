@@ -85,18 +85,21 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
 
     if (picks && picks.length > 0) {
       // Separate final3 and boot picks
-      const final3Picks = picks.filter(p => p.pickType === 'final3');
+      const final3Picks = picks
+        .filter(p => p.pickType === 'final3' && p.contestant)
+        .sort((a, b) => (a.final3Position ?? 99) - (b.final3Position ?? 99));
       const bootPicks = picks
         .filter(p => p.pickType === 'boot' && p.contestant)
         .sort((a, b) => (b.weekNumber ?? 0) - (a.weekNumber ?? 0));
       
-      // Fill final3 slots (up to 3)
+      // Fill final3 slots by explicit position (1 = index 0, etc).
       final3Picks.forEach((pick, index) => {
-        if (index < 3 && pick.contestant) {
-          rosterSlots[index].contestant = pick.contestant;
-          rosterSlots[index].points = pickPointsMap[pick.id] || 0;
-          rosterSlots[index].pickId = pick.id;
-          rosterSlots[index].weekNumber = pick.weekNumber;
+        const positionIndex = pick.final3Position ? pick.final3Position - 1 : index;
+        if (positionIndex >= 0 && positionIndex < 3 && pick.contestant) {
+          rosterSlots[positionIndex].contestant = pick.contestant;
+          rosterSlots[positionIndex].points = pickPointsMap[pick.id] || 0;
+          rosterSlots[positionIndex].pickId = pick.id;
+          rosterSlots[positionIndex].weekNumber = pick.weekNumber;
         }
       });
       
@@ -136,7 +139,8 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     contestantId: string,
     pickType: 'final3' | 'boot',
     slotIndex?: number,
-    weekNumber?: number
+    weekNumber?: number,
+    evacuationWeek?: number
   ): Promise<boolean> => {
     if (!userId || !leagueId) {
       return false;
@@ -158,12 +162,47 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
         }
       }
 
-      // For final3 picks during draft, if slotIndex is provided and that slot already has a pick, remove it
+      // For final3 picks, use explicit position mapping.
       if (pickType === 'final3' && slotIndex !== undefined) {
+        const final3Position = (slotIndex + 1) as 1 | 2 | 3;
+
+        if (evacuationWeek !== undefined) {
+          const replaced = await SupabaseService.replaceMedicalEvacuatedFinal3Pick(
+            userId,
+            leagueId,
+            final3Position,
+            contestantId,
+            evacuationWeek
+          );
+
+          if (replaced) {
+            await refreshRoster();
+            return true;
+          }
+
+          return false;
+        }
+
         const slot = roster[slotIndex];
         if (slot?.pickId) {
           await SupabaseService.removeRosterPick(slot.pickId);
         }
+
+        const pick = await SupabaseService.addRosterPick(
+          userId,
+          leagueId,
+          contestantId,
+          pickType,
+          undefined,
+          final3Position
+        );
+
+        if (pick) {
+          await refreshRoster();
+          return true;
+        }
+
+        return false;
       }
 
       const pick = await SupabaseService.addRosterPick(userId, leagueId, contestantId, pickType, weekNumber);

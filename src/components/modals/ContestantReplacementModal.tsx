@@ -16,6 +16,7 @@ interface ContestantReplacementModalProps {
   roster: RosterSlot[]; // Current roster to check for already selected contestants
   leagueId: string | null;
   rosterPicksByPosition: Record<number, string[]>; // Map of position (1-3) to contestant IDs already drafted for that position
+  medicallyEvacuatedContestantIds?: string[];
 }
 
 export default function ContestantReplacementModal({
@@ -29,8 +30,13 @@ export default function ContestantReplacementModal({
   roster,
   leagueId,
   rosterPicksByPosition,
+  medicallyEvacuatedContestantIds = [],
 }: ContestantReplacementModalProps) {
   const [selectedContestant, setSelectedContestant] = React.useState<Contestant | null>(null);
+  const medicallyEvacuatedSet = React.useMemo(
+    () => new Set(medicallyEvacuatedContestantIds),
+    [medicallyEvacuatedContestantIds]
+  );
 
   // Clear selected contestant when modal closes
   React.useEffect(() => {
@@ -252,7 +258,7 @@ export default function ContestantReplacementModal({
 
                   {/* Status Badge */}
                   <div className="px-3 py-1 rounded-full text-xs bg-slate-700 text-slate-500 flex-shrink-0">
-                    {contestant.status === 'eliminated' && 'Eliminated'}
+                    {contestant.status === 'eliminated' && (medicallyEvacuatedSet.has(contestant.id) ? 'Medevac' : 'Eliminated')}
                     {contestant.status === 'jury' && `Jury (Wk ${contestant.eliminatedWeek})`}
                     {contestant.status === 'final3' && 'Final 3'}
                     {contestant.status === 'active' && alreadySelectedContestantIds.includes(contestant.id) && 'In Your Final 3'}
