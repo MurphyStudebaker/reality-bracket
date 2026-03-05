@@ -35,6 +35,7 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     contestantId: string;
     pickType: 'final3' | 'boot';
     displayName: string;
+    weekNumber?: number;
   }>>(rosterPicksKey, fetcher);
 
   // Fetch activity events using SWR
@@ -52,11 +53,12 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
       return [];
     }
 
-    // Create a map of contestant ID to roster picks
+    // Create a map of contestant ID to roster picks (include weekNumber for boot picks)
     const contestantPicksMap: Record<string, Array<{
       userId: string;
       displayName: string;
       pickType: 'final3' | 'boot';
+      weekNumber?: number;
     }>> = {};
 
     rosterPicks.forEach(pick => {
@@ -67,6 +69,7 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
         userId: pick.userId,
         displayName: pick.displayName,
         pickType: pick.pickType,
+        weekNumber: pick.weekNumber,
       });
     });
 
@@ -81,7 +84,12 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
         
         if (pick.pickType === 'boot') {
           // Boot pick: +15 pts for eliminated or medical_evacuated
-          if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
+          // Must match week_number (scoring requires rp.week_number = ae.week_number)
+          if (
+            (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') &&
+            pick.weekNumber != null &&
+            pick.weekNumber === event.weekNumber
+          ) {
             points = 15;
           }
         } else if (pick.pickType === 'final3') {

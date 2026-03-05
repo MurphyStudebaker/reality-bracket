@@ -58,13 +58,6 @@ export default function RosterActivityContent({
     return map;
   }, [picks, roster]);
   const contestantIds = useMemo(() => Object.keys(contestantMetadata), [contestantMetadata]);
-  const contestantPickTypeMap = useMemo(() => {
-    const map: Record<string, 'final3' | 'boot'> = {};
-    Object.keys(contestantMetadata).forEach((contestantId) => {
-      map[contestantId] = contestantMetadata[contestantId].pickType;
-    });
-    return map;
-  }, [contestantMetadata]);
 
   // Fetch activity events using SWR
   const activityKey = createKey(
@@ -85,7 +78,8 @@ export default function RosterActivityContent({
   const activityEvents = useMemo(() => {
     return rawEvents
       .map((event) => {
-        const pickType = contestantPickTypeMap[event.contestantId];
+        const metadata = contestantMetadata[event.contestantId];
+        const pickType = metadata?.pickType;
         if (!pickType) {
           return { ...event, points: 0 };
         }
@@ -94,7 +88,12 @@ export default function RosterActivityContent({
         let points = 0;
         if (pickType === 'boot') {
           // Boot pick: +15 pts for eliminated or medical_evacuated
-          if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
+          // Must match week_number (scoring requires rp.week_number = ae.week_number)
+          const weekMatch = metadata.weekNumber != null && metadata.weekNumber === event.weekNumber;
+          if (
+            (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') &&
+            weekMatch
+          ) {
             points = 15;
           }
         } else if (pickType === 'final3') {
@@ -117,7 +116,7 @@ export default function RosterActivityContent({
         return { ...event, points };
       })
       .filter((event) => event.points > 0);
-  }, [rawEvents, contestantPickTypeMap]);
+  }, [rawEvents, contestantMetadata]);
 
   // Group events by week
   const eventsByWeek = useMemo<Record<number, ActivityEvent[]>>(() => {
