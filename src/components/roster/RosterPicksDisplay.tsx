@@ -14,9 +14,11 @@ interface RosterPicksDisplayProps {
   currentDraftTurnName?: string | null;
   isUserTurnForPosition?: (position: 1 | 2 | 3) => boolean;
   onDraftFinal3?: (index: number) => void;
+  onDraftFinal3Replacement?: (index: number) => void;
   onDraftBoot?: () => void;
   headingLevel?: 'h2' | 'h3';
   isFinal3ContestantEliminated: (contestant: Contestant | null) => boolean;
+  isFinal3ContestantMedicalEvacuated?: (contestant: Contestant | null) => boolean;
 }
 
 export default function RosterPicksDisplay({
@@ -30,9 +32,11 @@ export default function RosterPicksDisplay({
   currentDraftTurnName,
   isUserTurnForPosition,
   onDraftFinal3,
+  onDraftFinal3Replacement,
   onDraftBoot,
   headingLevel = 'h2',
   isFinal3ContestantEliminated,
+  isFinal3ContestantMedicalEvacuated,
 }: RosterPicksDisplayProps) {
   const HeadingTag = headingLevel;
   const canDraftFinal3 = (position: 1 | 2 | 3) =>
@@ -52,6 +56,7 @@ export default function RosterPicksDisplay({
         <div className="space-y-4">
           {final3Slots.map((slot, index) => {
             const isEliminated = isFinal3ContestantEliminated(slot.contestant);
+            const isMedicalEvacuated = Boolean(isFinal3ContestantMedicalEvacuated?.(slot.contestant));
             const borderColor = slot.contestant
               ? (isEliminated ? '#6B7280' : '#BFFF0B')
               : '#94A3B8';
@@ -60,13 +65,12 @@ export default function RosterPicksDisplay({
             return (
               <div
                 key={index}
-                className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-4 min-h-[96px] relative overflow-hidden transition-all ${
-                  isEliminated ? 'opacity-60 grayscale' : ''
-                }`}
+                className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 p-4 min-h-[96px] relative overflow-hidden transition-all"
                 style={{ borderColor }}
               >
                 {slot.contestant ? (
-                  <div className="flex items-center justify-between gap-4">
+                  <>
+                  <div className={`flex items-center justify-between gap-4 ${isEliminated ? 'grayscale opacity-60' : ''}`}>
                     {/* Left Side: Image, Name, Occupation */}
                     <div className="flex items-center gap-4 flex-1">
                       <Avatar
@@ -102,7 +106,7 @@ export default function RosterPicksDisplay({
                         {isEliminated && (
                             <div>
                           <span className="px-3 py-1 rounded-full text-xs bg-red-600 text-white font-semibold">
-                            Eliminated
+                            {isMedicalEvacuated ? 'Medevac' : 'Eliminated'}
                           </span>
                           </div>
                         )}
@@ -117,6 +121,19 @@ export default function RosterPicksDisplay({
                       </div>
                     </div>
                   </div>
+                  {isMedicalEvacuated && onDraftFinal3Replacement && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/30">
+                      <button
+                        onClick={() => onDraftFinal3Replacement(index)}
+                        className="px-6 py-2.5 rounded-lg border-2 transition-all hover:bg-slate-800"
+                        style={{ borderColor: '#BFFF0B', color: '#BFFF0B' }}
+                        title="Draft replacement for medically evacuated player"
+                      >
+                        Draft Replacement
+                      </button>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">

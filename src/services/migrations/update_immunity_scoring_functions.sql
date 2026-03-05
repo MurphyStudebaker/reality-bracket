@@ -25,14 +25,23 @@ AS $$
           THEN 15
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type = 'tribal_immunity'
           THEN 5
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type IN ('individual_immunity', 'found_immunity_idol', 'immunity')
           THEN 10
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type IN ('made_jury', 'made_final_three')
           THEN 5
 
@@ -73,14 +82,23 @@ AS $$
           THEN 15
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type = 'tribal_immunity'
           THEN 5
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type IN ('individual_immunity', 'found_immunity_idol', 'immunity')
           THEN 10
 
         WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
           AND ae.activity_type IN ('made_jury', 'made_final_three')
           THEN 5
 

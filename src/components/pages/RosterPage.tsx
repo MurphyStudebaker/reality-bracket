@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, Users, Copy, Check } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
@@ -26,6 +26,21 @@ interface RosterPageProps {
   onLeagueChange: (league: League | null) => void;
 }
 
+interface LeagueActivityEvent {
+  id: string;
+  contestantId: string;
+  weekNumber: number;
+  activityType: string;
+  createdAt: string;
+  contestantName: string;
+}
+
+interface MedicalEvacReplacementNeed {
+  slotIndex: number;
+  evacuationWeek: number;
+  contestantName: string;
+}
+
 export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPageProps) {
   const { user } = useAuthViewModel();
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -35,6 +50,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [medicalEvacReplacement, setMedicalEvacReplacement] = useState<MedicalEvacReplacementNeed | null>(null);
 
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', user?.id);
@@ -89,6 +105,12 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     fetcher
   );
   const nextBootWeek = Math.max(latestEliminationWeek + 1, 1);
+
+  const leagueActivityEventsKey = createKey('league-activity-events', seasonId);
+  const { data: leagueActivityEvents = [] } = useSWR<LeagueActivityEvent[]>(
+    leagueActivityEventsKey,
+    fetcher
+  );
 
   // Check if draft has started
   const draftStartedKey = createKey('draft-started', selectedLeague?.id);
@@ -177,6 +199,46 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const currentBootWeek = bootSlot?.weekNumber ?? 0;
   const isCurrentBootPickActive = Boolean(bootSlot?.contestant && bootSlot?.weekNumber === nextBootWeek);
   const canDraftBoot = currentBootWeek < nextBootWeek;
+  const medicalEvacReplacementsNeeded = useMemo<MedicalEvacReplacementNeed[]>(() => {
+    if (!final3Slots.length || !leagueActivityEvents.length) {
+      return [];
+    }
+
+    const replacements: MedicalEvacReplacementNeed[] = [];
+
+    final3Slots.forEach((slot, slotIndex) => {
+      const contestant = slot.contestant;
+      if (!contestant) return;
+
+      const evacEvents = leagueActivityEvents
+        .filter(event => event.contestantId === contestant.id && event.activityType === 'medical_evacuated')
+        .sort((a, b) => b.weekNumber - a.weekNumber);
+
+      if (evacEvents.length > 0) {
+        replacements.push({
+          slotIndex,
+          evacuationWeek: evacEvents[0].weekNumber,
+          contestantName: contestant.name,
+        });
+      }
+    });
+
+    return replacements.sort((a, b) => a.slotIndex - b.slotIndex);
+  }, [final3Slots, leagueActivityEvents]);
+  const medicallyEvacuatedContestantIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          leagueActivityEvents
+            .filter(event => event.activityType === 'medical_evacuated')
+            .map(event => event.contestantId)
+        )
+      ),
+    [leagueActivityEvents]
+  );
+
+  const isMedicalEvacuatedFinal3 = (slotIndex: number) =>
+    medicalEvacReplacementsNeeded.some(replacement => replacement.slotIndex === slotIndex);
 
   const handleDraftClick = (index: number) => {
     if (!hasDraftStarted) {
@@ -190,6 +252,15 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
 
     // For Final 3 positions, check if it's user's turn
     if (slot.type === 'final3') {
+      if (isMedicalEvacuatedFinal3(index)) {
+        const replacementNeed = medicalEvacReplacementsNeeded.find(replacement => replacement.slotIndex === index);
+        if (replacementNeed) {
+          setMedicalEvacReplacement(replacementNeed);
+        }
+        setSelectedSlotIndex(index);
+        setIsReplacementModalOpen(true);
+        return;
+      }
       const position = (index + 1) as 1 | 2 | 3; // Final 3 slots are at indices 0, 1, 2
       if (!isUserTurnForPosition(position)) {
         return; // Don't allow if it's not their turn
@@ -201,6 +272,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     // Boot position can always be drafted (no turn restriction)
 
     setSelectedSlotIndex(index);
+    setMedicalEvacReplacement(null);
     setIsReplacementModalOpen(true);
   };
 
@@ -229,11 +301,18 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     try {
       // Add contestant to roster via viewmodel (which writes to Supabase)
       const weekNumberForPick = slot.type === 'boot' ? nextBootWeek : undefined;
+      const evacuationWeekForReplacement =
+        slot.type === 'final3' &&
+        medicalEvacReplacement &&
+        medicalEvacReplacement.slotIndex === selectedSlotIndex
+          ? medicalEvacReplacement.evacuationWeek
+          : undefined;
       const success = await addContestantToRoster(
         pendingContestant.id,
         slot.type,
         selectedSlotIndex,
-        weekNumberForPick
+        weekNumberForPick,
+        evacuationWeekForReplacement
       );
       
       if (success) {
@@ -253,6 +332,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         setIsDraftConfirmOpen(false);
         setPendingContestant(null);
         setSelectedSlotIndex(null);
+        setMedicalEvacReplacement(null);
       } else {
         console.error('Failed to add contestant to roster');
         alert('Failed to draft contestant. Please try again.');
@@ -267,8 +347,18 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
 
   const isFinal3ContestantEliminated = (contestant: Contestant | null) => {
     if (!contestant) return false;
+    const isMedicalEvacuated = final3Slots.some((slot, slotIndex) =>
+      slot.contestant?.id === contestant.id && isMedicalEvacuatedFinal3(slotIndex)
+    );
     // For Final 3 picks, check if they've been eliminated (but not if they're in final3 status, which means they made it)
-    return contestant.status === 'eliminated' || contestant.status === 'jury';
+    return contestant.status === 'eliminated' || contestant.status === 'jury' || isMedicalEvacuated;
+  };
+
+  const isFinal3ContestantMedicalEvacuated = (contestant: Contestant | null) => {
+    if (!contestant) return false;
+    return final3Slots.some((slot, slotIndex) =>
+      slot.contestant?.id === contestant.id && isMedicalEvacuatedFinal3(slotIndex)
+    );
   };
 
   const handleCopyInviteCode = async () => {
@@ -386,11 +476,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         currentDraftTurnName={currentDraftTurn?.currentPlayerName}
         isUserTurnForPosition={isUserTurnForPosition}
         onDraftFinal3={(index) => handleDraftClick(index)}
+        onDraftFinal3Replacement={(index) => handleDraftClick(index)}
         onDraftBoot={() => {
           if (!canDraftBoot || bootSlotIndex === -1) return;
           handleDraftClick(bootSlotIndex);
         }}
         isFinal3ContestantEliminated={isFinal3ContestantEliminated}
+        isFinal3ContestantMedicalEvacuated={isFinal3ContestantMedicalEvacuated}
       />
 
       <div className="mt-10">
@@ -449,6 +541,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         onClose={() => {
           setIsReplacementModalOpen(false);
           setSelectedSlotIndex(null);
+          setMedicalEvacReplacement(null);
         }}
         contestants={availableContestants}
         currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
@@ -458,6 +551,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         roster={roster}
         leagueId={selectedLeague?.id || null}
         rosterPicksByPosition={rosterPicksByPosition}
+        medicallyEvacuatedContestantIds={medicallyEvacuatedContestantIds}
       />
 
       {/* Draft Confirmation Modal */}
@@ -474,7 +568,9 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
           title="Confirm Draft Selection"
           message={
             selectedSlotIndex < 3
-              ? `Are you sure you want to draft ${pendingContestant.name} for Position ${selectedSlotIndex + 1} (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
+              ? medicalEvacReplacement && medicalEvacReplacement.slotIndex === selectedSlotIndex
+                ? `Are you sure you want to replace ${medicalEvacReplacement.contestantName} with ${pendingContestant.name} for Position ${selectedSlotIndex + 1} (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})?`
+                : `Are you sure you want to draft ${pendingContestant.name} for Position ${selectedSlotIndex + 1} (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
               : `Are you sure you want to draft ${pendingContestant.name} as your Week ${nextBootWeek} Next Boot pick?`
           }
           confirmText="Confirm Draft"

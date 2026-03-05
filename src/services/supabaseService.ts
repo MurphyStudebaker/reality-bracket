@@ -824,14 +824,24 @@ export class SupabaseService {
         return [];
       }
 
+      const activePicks = (data || []).filter((pick: any) => {
+        if (pick.pick_type === 'final3') {
+          return pick.active_through_week === null;
+        }
+        return true;
+      });
+
       // Transform database columns to TypeScript interface
-      return (data || []).map((pick: any) => ({
+      return activePicks.map((pick: any) => ({
         id: pick.id,
         userId: pick.user_id,
         leagueId: pick.league_id,
         contestantId: pick.contestant_id,
         pickType: pick.pick_type as 'final3' | 'boot',
         weekNumber: pick.week_number ?? undefined,
+        final3Position: pick.final3_position ?? undefined,
+        activeFromWeek: pick.active_from_week ?? undefined,
+        activeThroughWeek: pick.active_through_week ?? undefined,
         pickedAt: pick.picked_at,
         contestant: pick.contestants ? {
           id: pick.contestants.id,
@@ -856,7 +866,11 @@ export class SupabaseService {
     leagueId: string,
     contestantId: string,
     pickType: 'final3' | 'boot',
-    weekNumber?: number
+    weekNumber?: number,
+    final3Position?: 1 | 2 | 3,
+    activeFromWeek?: number,
+    activeThroughWeek?: number,
+    advanceDraftTurn: boolean = true
   ): Promise<RosterPick | null> {
     try {
       const { data, error } = await supabase
@@ -867,6 +881,9 @@ export class SupabaseService {
           contestant_id: contestantId,
           pick_type: pickType,
           week_number: weekNumber ?? null,
+          final3_position: pickType === 'final3' ? (final3Position ?? null) : null,
+          active_from_week: pickType === 'final3' ? (activeFromWeek ?? 1) : null,
+          active_through_week: pickType === 'final3' ? (activeThroughWeek ?? null) : null,
         })
         .select()
         .single();
@@ -881,7 +898,7 @@ export class SupabaseService {
       }
 
       // If this is a final3 pick, advance the draft turn
-      if (pickType === 'final3') {
+      if (pickType === 'final3' && advanceDraftTurn) {
         try {
           const advanced = await this.advanceDraftTurn(leagueId);
           if (!advanced) {
@@ -903,6 +920,9 @@ export class SupabaseService {
         contestantId: data.contestant_id,
         pickType: data.pick_type as 'final3' | 'boot',
         weekNumber: data.week_number ?? undefined,
+        final3Position: data.final3_position ?? undefined,
+        activeFromWeek: data.active_from_week ?? undefined,
+        activeThroughWeek: data.active_through_week ?? undefined,
         pickedAt: data.picked_at,
       };
     } catch (error) {
@@ -1799,29 +1819,15 @@ export class SupabaseService {
     try {
       const { data: picks, error: picksError } = await supabase
         .from('roster_picks')
-        .select('user_id, contestant_id, pick_type, picked_at')
+        .select('contestant_id, final3_position')
         .eq('league_id', leagueId)
         .eq('pick_type', 'final3')
-        .order('picked_at', { ascending: true });
+        .is('active_through_week', null);
 
       if (picksError || !picks) {
         console.error('Error fetching roster picks by position:', picksError);
         return {};
       }
-
-      // Group picks by user, then determine position based on order
-      const picksByUser: Record<string, Array<{ contestantId: string; position: number }>> = {};
-      
-      picks.forEach((pick: any) => {
-        if (!picksByUser[pick.user_id]) {
-          picksByUser[pick.user_id] = [];
-        }
-        const position = picksByUser[pick.user_id].length + 1; // 1st pick = position 1, 2nd = position 2, etc.
-        picksByUser[pick.user_id].push({
-          contestantId: pick.contestant_id,
-          position: position
-        });
-      });
 
       // Create a map of position to contestant IDs
       const picksByPosition: Record<number, string[]> = {
@@ -1830,14 +1836,11 @@ export class SupabaseService {
         3: []
       };
 
-      Object.values(picksByUser).forEach(userPicks => {
-        userPicks.forEach(({ contestantId, position }) => {
-          if (position >= 1 && position <= 3) {
-            if (!picksByPosition[position].includes(contestantId)) {
-              picksByPosition[position].push(contestantId);
-            }
-          }
-        });
+      picks.forEach((pick: any) => {
+        const position = pick.final3_position;
+        if (position >= 1 && position <= 3 && !picksByPosition[position].includes(pick.contestant_id)) {
+          picksByPosition[position].push(pick.contestant_id);
+        }
       });
 
       return picksByPosition;
@@ -1853,13 +1856,17 @@ export class SupabaseService {
     userId: string;
     contestantId: string;
     pickType: 'final3' | 'boot';
+    final3Position?: number;
+    activeFromWeek?: number;
+    activeThroughWeek?: number;
+    weekNumber?: number;
     displayName: string;
   }>> {
     try {
       // First get all roster picks
       const { data: picks, error: picksError } = await supabase
         .from('roster_picks')
-        .select('id, user_id, contestant_id, pick_type, week_number')
+        .select('id, user_id, contestant_id, pick_type, week_number, final3_position, active_from_week, active_through_week')
         .eq('league_id', leagueId);
 
       if (picksError) {
@@ -1898,6 +1905,9 @@ export class SupabaseService {
         userId: pick.user_id,
         contestantId: pick.contestant_id,
         pickType: pick.pick_type as 'final3' | 'boot',
+        final3Position: pick.final3_position ?? undefined,
+        activeFromWeek: pick.active_from_week ?? undefined,
+        activeThroughWeek: pick.active_through_week ?? undefined,
         weekNumber: pick.week_number ?? undefined,
         displayName: displayNameMap[pick.user_id] || 'Unknown',
       }));
@@ -1995,6 +2005,58 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error in getLatestEliminationWeek:', error);
       return 0;
+    }
+  }
+
+  static async replaceMedicalEvacuatedFinal3Pick(
+    userId: string,
+    leagueId: string,
+    final3Position: 1 | 2 | 3,
+    newContestantId: string,
+    evacuationWeek: number
+  ): Promise<boolean> {
+    try {
+      const { data: activePick, error: activePickError } = await supabase
+        .from('roster_picks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('league_id', leagueId)
+        .eq('pick_type', 'final3')
+        .eq('final3_position', final3Position)
+        .is('active_through_week', null)
+        .maybeSingle();
+
+      if (activePickError || !activePick) {
+        console.error('Error finding active final3 pick to replace:', activePickError);
+        return false;
+      }
+
+      const { error: closeError } = await supabase
+        .from('roster_picks')
+        .update({ active_through_week: evacuationWeek })
+        .eq('id', activePick.id);
+
+      if (closeError) {
+        console.error('Error closing evacuated final3 pick window:', closeError);
+        return false;
+      }
+
+      const replacement = await this.addRosterPick(
+        userId,
+        leagueId,
+        newContestantId,
+        'final3',
+        undefined,
+        final3Position,
+        evacuationWeek + 1,
+        undefined,
+        false
+      );
+
+      return Boolean(replacement);
+    } catch (error) {
+      console.error('Error in replaceMedicalEvacuatedFinal3Pick:', error);
+      return false;
     }
   }
 }

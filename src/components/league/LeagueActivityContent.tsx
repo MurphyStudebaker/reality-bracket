@@ -34,6 +34,9 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     userId: string;
     contestantId: string;
     pickType: 'final3' | 'boot';
+    weekNumber?: number;
+    activeFromWeek?: number;
+    activeThroughWeek?: number;
     displayName: string;
     weekNumber?: number;
   }>>(rosterPicksKey, fetcher);
@@ -93,6 +96,14 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
             points = 15;
           }
         } else if (pick.pickType === 'final3') {
+          const inActiveWindow =
+            (pick.activeFromWeek ?? 1) <= event.weekNumber &&
+            (pick.activeThroughWeek === undefined || pick.activeThroughWeek >= event.weekNumber);
+
+          if (!inActiveWindow) {
+            return;
+          }
+
           // Final 3 pick: +5 tribal immunity, +10 individual immunity/idol, +5 made_jury, +5 made_final_three
           if (event.activityType === 'tribal_immunity') {
             points = 5;

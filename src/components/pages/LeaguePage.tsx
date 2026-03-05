@@ -42,6 +42,12 @@ interface LeagueActivityEvent {
   contestantName: string;
 }
 
+interface MedicalEvacReplacementNeed {
+  slotIndex: number;
+  evacuationWeek: number;
+  contestantName: string;
+}
+
 interface LeaguePageProps {
   selectedLeague: League | null;
   onLeagueChange: (league: League | null) => void;
@@ -62,6 +68,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const [pendingContestant, setPendingContestant] = useState<Contestant | null>(null);
   const [isDraftConfirmOpen, setIsDraftConfirmOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [medicalEvacReplacement, setMedicalEvacReplacement] = useState<MedicalEvacReplacementNeed | null>(null);
 
   // Fetch current user
   const userKey = createKey('current-user');
@@ -161,6 +168,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     }
     setSelectedSlotIndex(slotIndex);
     setSelectedSlotType('final3');
+    setMedicalEvacReplacement(null);
     setIsReplacementModalOpen(true);
   };
 
@@ -170,6 +178,14 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     }
     setSelectedSlotIndex(bootSlotIndex);
     setSelectedSlotType('boot');
+    setMedicalEvacReplacement(null);
+    setIsReplacementModalOpen(true);
+  };
+
+  const handleOpenMedicalEvacReplacementModal = (replacementNeed: MedicalEvacReplacementNeed) => {
+    setSelectedSlotIndex(replacementNeed.slotIndex);
+    setSelectedSlotType('final3');
+    setMedicalEvacReplacement(replacementNeed);
     setIsReplacementModalOpen(true);
   };
 
@@ -190,11 +206,19 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     try {
       const pickType = selectedSlotType;
       const weekNumberForPick = pickType === 'boot' ? nextBootWeek : undefined;
+      const evacuationWeekForReplacement =
+        pickType === 'final3' &&
+        medicalEvacReplacement &&
+        medicalEvacReplacement.slotIndex === selectedSlotIndex
+          ? medicalEvacReplacement.evacuationWeek
+          : undefined;
+
       const success = await addContestantToRoster(
         pendingContestant.id,
         pickType,
         selectedSlotIndex,
-        weekNumberForPick
+        weekNumberForPick,
+        evacuationWeekForReplacement
       );
 
       if (success) {
@@ -209,6 +233,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         setPendingContestant(null);
         setSelectedSlotIndex(null);
         setSelectedSlotType('final3');
+        setMedicalEvacReplacement(null);
       } else {
         console.error('Failed to add contestant to roster');
         alert('Failed to draft contestant. Please try again.');
@@ -417,6 +442,37 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const canDraftBoot = bootSlotIndex >= 0 && currentBootWeek < nextBootWeek;
   const shouldShowBootDraftPrompt = draftStatus === 'completed' && canDraftBoot;
 
+  const medicalEvacReplacementsNeeded = useMemo<MedicalEvacReplacementNeed[]>(() => {
+    if (!roster.length || !leagueActivityEvents.length) {
+      return [];
+    }
+
+    const replacements: MedicalEvacReplacementNeed[] = [];
+
+    roster
+      .slice(0, 3)
+      .forEach((slot, slotIndex) => {
+        const contestant = slot.contestant;
+        if (!contestant) return;
+
+        const evacEvents = leagueActivityEvents
+          .filter(event => event.contestantId === contestant.id && event.activityType === 'medical_evacuated')
+          .sort((a, b) => b.weekNumber - a.weekNumber);
+
+        if (evacEvents.length > 0) {
+          replacements.push({
+            slotIndex,
+            evacuationWeek: evacEvents[0].weekNumber,
+            contestantName: contestant.name,
+          });
+        }
+      });
+
+    return replacements.sort((a, b) => a.slotIndex - b.slotIndex);
+  }, [roster, leagueActivityEvents]);
+
+  const currentMedicalEvacReplacement = medicalEvacReplacementsNeeded[0] || null;
+
   const topThree = standings.slice(0, 3);
   const restOfStandings = standings.slice(3);
   const hasPointTotals = standings.some((standing) => (standing.points ?? 0) > 0);
@@ -622,7 +678,30 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       </div>
 
       {/* Draft Status - Show current draft round and whose turn it is */}
-      {shouldShowBootDraftPrompt ? (
+      {currentMedicalEvacReplacement ? (
+        <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <h3 className="text-amber-300 font-semibold mb-1">Final 3 Replacement Needed</h3>
+              <p className="text-amber-200/80 text-sm mb-3">
+                Your pick {currentMedicalEvacReplacement.contestantName} was medically evacuated in Week {currentMedicalEvacReplacement.evacuationWeek}. Draft a replacement for Position {currentMedicalEvacReplacement.slotIndex + 1}.
+              </p>
+              <div className="h-4"></div>
+              <button
+                onClick={() => handleOpenMedicalEvacReplacementModal(currentMedicalEvacReplacement)}
+                className="mt-4 w-full px-4 py-3 rounded-lg border-2 transition-all font-semibold hover:scale-[1.02] active:scale-[0.98] hover:opacity-90 active:opacity-80"
+                style={{
+                  borderColor: '#BFFF0B',
+                  backgroundColor: 'rgba(191, 255, 11, 0.1)',
+                  color: '#BFFF0B',
+                }}
+              >
+                Draft Replacement
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : shouldShowBootDraftPrompt ? (
         <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-1">
@@ -1087,6 +1166,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           setIsReplacementModalOpen(false);
           setSelectedSlotIndex(null);
           setSelectedSlotType('final3');
+          setMedicalEvacReplacement(null);
         }}
         contestants={availableContestants}
         currentContestant={selectedSlotIndex !== null ? roster[selectedSlotIndex]?.contestant || null : null}
@@ -1112,6 +1192,10 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           message={
             selectedSlotType === 'boot'
               ? `Are you sure you want to draft ${pendingContestant.name} for the Week ${nextBootWeek} Next Eliminated pick? This selection cannot be changed once confirmed.`
+              : medicalEvacReplacement && medicalEvacReplacement.slotIndex === selectedSlotIndex
+              ? `Are you sure you want to replace ${medicalEvacReplacement.contestantName} with ${pendingContestant.name} for Position ${
+                  selectedSlotIndex + 1
+                } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})?`
               : `Are you sure you want to draft ${pendingContestant.name} for Position ${
                   selectedSlotIndex + 1
                 } (${selectedSlotIndex === 0 ? 'Sole Survivor' : selectedSlotIndex === 1 ? 'Runner Up' : 'Third Place'})? This selection cannot be changed once confirmed.`
