@@ -47,72 +47,82 @@ const faqItems = [
 
 export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps) {
   return (
-    <div className="max-w-4xl mx-auto p-4 lg:p-8 min-h-screen flex flex-col">
+    <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1rem', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Hero Section */}
-      <section className="flex flex-col justify-center items-center pt-8 pb-12">
-        <div className="max-w-md rounded-full flex items-center justify-center" style={{ width: 'clamp(12rem, 18vw, 16rem)', height: 'clamp(12rem, 18vw, 16rem)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingTop: '2rem', paddingBottom: '3rem' }}>
+        <div style={{ width: 'clamp(12rem, 18vw, 16rem)', height: 'clamp(12rem, 18vw, 16rem)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img 
             src={logo3D} 
             alt="Reality Bracket Logo" 
-            className="w-full h-full object-contain"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
-        <div className="flex flex-col gap-4 items-center justify-center text-center mt-4">
-          <h1 className="text-5xl font-bold" style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)' }}>Tribal Bracket:</h1>
-          <h2 className="text-5xl font-bold" style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)', marginTop: '-0.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginTop: '1rem' }}>
+          <h1 style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)', fontWeight: 700 }}>Tribal Bracket:</h1>
+          <h2 style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)', fontWeight: 700, marginTop: '-0.5rem' }}>
             Outwit, Outplay, Out<span style={{ color: '#BFFF0B', fontStyle: 'italic' }}>draft</span>
           </h2>
-          <p className="text-lg text-slate-400 max-w-lg" style={{ fontSize: '1.25rem'}}>
+          <p style={{ fontSize: '1.25rem', color: '#94a3b8', maxWidth: '32rem' }}>
             100% free app for playing Survivor Fantasy Leagues with your tribe.
           </p>
           <button
             onClick={onSignInClick}
-            className="w-full max-w-md px-6 py-4 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 mt-2"
             style={{ 
-              borderColor: '#BFFF0B',
+              width: '100%',
+              maxWidth: '28rem',
+              padding: '1rem 1.5rem',
+              borderRadius: '0.75rem',
+              border: '2px solid #BFFF0B',
               backgroundColor: 'rgba(191, 255, 11, 0.1)',
-              color: '#BFFF0B'
+              color: '#BFFF0B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
+              cursor: 'pointer',
+              transition: 'transform 0.2s'
             }}
           >
-            <LogIn className="w-5 h-5" />
-            <span className="text-lg font-semibold">Create Account to Play</span>
+            <LogIn style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span style={{ fontSize: '1.125rem', fontWeight: 600 }}>Create Account to Play</span>
           </button>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-12 border-t border-slate-800">
-        <h3 className="text-2xl font-bold text-center mb-10">How It Works</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section style={{ padding: '3rem 0', borderTop: '1px solid #1e293b' }}>
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 700, textAlign: 'center', marginBottom: '2.5rem' }}>How It Works</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
           {/* Feature 1 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Users className="w-7 h-7" style={{ color: '#BFFF0B' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
+            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
+              <Users style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
             </div>
-            <h4 className="text-lg font-semibold mb-2">Play With Your Tribe</h4>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Play With Your Tribe</h4>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
               Create or join a league with up to 12 friends. Compete throughout live Survivor seasons to see who has the best strategy.
             </p>
           </div>
 
           {/* Feature 2 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Target className="w-7 h-7" style={{ color: '#BFFF0B' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
+            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
+              <Target style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
             </div>
-            <h4 className="text-lg font-semibold mb-2">Draft Your Final 3</h4>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Draft Your Final 3</h4>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
               Before the season starts, draft the three contestants you think will make it to the end. Choose wisely - your picks are locked in!
             </p>
           </div>
 
           {/* Feature 3 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Calendar className="w-7 h-7" style={{ color: '#BFFF0B' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
+            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
+              <Calendar style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
             </div>
-            <h4 className="text-lg font-semibold mb-2">Predict Weekly Eliminations</h4>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Predict Weekly Eliminations</h4>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
               Each week, predict who will be voted out. Earn bonus points for correct predictions and climb the leaderboard all season long.
             </p>
           </div>
@@ -120,16 +130,16 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
       </section>
 
       {/* FAQ Section */}
-      <section className="py-12 border-t border-slate-800">
-        <h3 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h3>
-        <div className="max-w-2xl mx-auto">
-          <Accordion type="single" collapsible className="w-full">
+      <section style={{ padding: '3rem 0', borderTop: '1px solid #1e293b' }}>
+        <h3 style={{ fontSize: '1.5rem', fontWeight: 700, textAlign: 'center', marginBottom: '2rem' }}>Frequently Asked Questions</h3>
+        <div style={{ maxWidth: '42rem', margin: '0 auto' }}>
+          <Accordion type="single" collapsible style={{ width: '100%' }}>
             {faqItems.map((item, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="border-slate-800">
-                <AccordionTrigger className="text-left hover:no-underline py-5">
-                  <span className="font-medium">{item.question}</span>
+              <AccordionItem key={index} value={`item-${index}`} style={{ borderColor: '#1e293b' }}>
+                <AccordionTrigger style={{ textAlign: 'left', padding: '1.25rem 0' }}>
+                  <span style={{ fontWeight: 500 }}>{item.question}</span>
                 </AccordionTrigger>
-                <AccordionContent className="text-slate-400 leading-relaxed">
+                <AccordionContent style={{ color: '#94a3b8', lineHeight: 1.6 }}>
                   {item.answer}
                 </AccordionContent>
               </AccordionItem>
@@ -139,33 +149,41 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
       </section>
 
       {/* CTA Section */}
-      <section className="py-12 border-t border-slate-800">
-        <div className="flex flex-col items-center text-center gap-4">
-          <Trophy className="w-10 h-10" style={{ color: '#BFFF0B' }} />
-          <h3 className="text-2xl font-bold">Ready to Outwit Your Friends?</h3>
-          <p className="text-slate-400 max-w-md">
+      <section style={{ padding: '3rem 0', borderTop: '1px solid #1e293b' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
+          <Trophy style={{ width: '2.5rem', height: '2.5rem', color: '#BFFF0B' }} />
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Ready to Outwit Your Friends?</h3>
+          <p style={{ color: '#94a3b8', maxWidth: '28rem' }}>
             Join thousands of Survivor fans already competing in fantasy leagues. Create your free account and start drafting today.
           </p>
           <button
             onClick={onSignInClick}
-            className="px-8 py-3 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 mt-2"
             style={{ 
-              borderColor: '#BFFF0B',
+              padding: '0.75rem 2rem',
+              borderRadius: '0.75rem',
+              border: '2px solid #BFFF0B',
               backgroundColor: 'rgba(191, 255, 11, 0.1)',
-              color: '#BFFF0B'
+              color: '#BFFF0B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
+              cursor: 'pointer',
+              fontWeight: 600
             }}
           >
-            <span className="font-semibold">Get Started Free</span>
+            Get Started Free
           </button>
         </div>
       </section>
 
-      <footer className="py-6 mt-auto flex items-center justify-center gap-4 text-sm text-slate-400 border-t border-slate-800">
-        <a href="/privacy" className="hover:text-white transition-colors">
+      <footer style={{ padding: '1.5rem 0', marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontSize: '0.875rem', color: '#94a3b8', borderTop: '1px solid #1e293b' }}>
+        <a href="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>
           Privacy Policy
         </a>
-        <span className="text-slate-600">|</span>
-        <a href="/terms" className="hover:text-white transition-colors">
+        <span style={{ color: '#475569' }}>|</span>
+        <a href="/terms" style={{ color: 'inherit', textDecoration: 'none' }}>
           Terms of Service
         </a>
       </footer>
