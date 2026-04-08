@@ -1,8 +1,11 @@
 import React from 'react';
-import { LogIn, Users, Target, Calendar, Trophy } from 'lucide-react';
+import { LogIn, Trophy } from 'lucide-react';
 import logoImage from '../../assets/icon.png';
 import logo3D from '../../assets/tribal_bracket_icon_3d.png';
 import mockup from '../../assets/mockup.png';
+import featureLeague from '../../assets/feature-league.jpg';
+import featureDraft from '../../assets/feature-draft.jpg';
+import featurePredictions from '../../assets/feature-predictions.jpg';
 import { CountdownTimer } from "../ui/countdown-timer"
 import {
   Accordion,
@@ -25,15 +28,19 @@ const faqItems = [
   },
   {
     question: "When does the draft happen?",
-    answer: "League commissioners set the draft date before the season premiere. All league members join a live draft where you take turns selecting your Final 3 contestants."
+    answer: "League commissioners can begin the draft at any point before or during an upcoming season. All league members take turns selecting your Final 3 contestants - there is no time limit to complete the draft."
   },
   {
     question: "How does scoring work?",
-    answer: "You earn points based on your Final 3 picks and weekly elimination predictions. Points are awarded when your drafted contestants survive each episode, win challenges, and make it to the finale. Correct elimination predictions earn bonus points."
+    answer: "You earn points based on your Final 3 picks and weekly elimination predictions. Players win 5 points for earning tribal immunity, 10 points for finding an immunity idol, 15 points for earning individual immunity, and 15 points for a correctly predicted elimination. "
   },
   {
     question: "Can I change my picks during the season?",
-    answer: "Your Final 3 picks are locked after the draft, but you make new elimination predictions each week before the episode airs. This keeps the competition exciting throughout the entire season."
+    answer: "Your Final 3 picks are locked after the draft, but you make new elimination predictions each week before the episode airs. This keeps the competition exciting throughout the entire season. If one of your Final 3 is medevaced, you can select a replacement player from the remaining pool of active contestants."
+  },
+  {
+    question: "Can multiple people draft the same contestant?",
+    answer: "Only one person in the league can have a contestant in the same spot but multiple people can draft the same player in their final 3 at different spots. For example, if I draft Parvati as Sole Survivor, you can only draft her for Runner Up or Third Place. There is no restriction on multiple people in a league selecting the same contestant to be eliminated each week."
   },
   {
     question: "Is Tribal Bracket really free?",
@@ -51,9 +58,9 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
       {/* Hero Section */}
       <section style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingTop: '2rem', paddingBottom: '3rem' }}>
         <div style={{ width: 'clamp(12rem, 18vw, 16rem)', height: 'clamp(12rem, 18vw, 16rem)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img 
-            src={logo3D} 
-            alt="Reality Bracket Logo" 
+          <img
+            src={logo3D}
+            alt="Reality Bracket Logo"
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
@@ -67,7 +74,7 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
           </p>
           <button
             onClick={onSignInClick}
-            style={{ 
+            style={{
               width: '100%',
               maxWidth: '28rem',
               padding: '1rem 1.5rem',
@@ -96,8 +103,12 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
           {/* Feature 1 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
-            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Users style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
+            <div style={{ width: '100%', marginBottom: '1rem', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <img 
+                src={featureLeague} 
+                alt="League leaderboard showing players and scores" 
+                style={{ width: '100%', height: '10rem', objectFit: 'cover' }}
+              />
             </div>
             <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Play With Your Tribe</h4>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
@@ -107,8 +118,12 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
 
           {/* Feature 2 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
-            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Target style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
+            <div style={{ width: '100%', marginBottom: '1rem', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <img 
+                src={featureDraft} 
+                alt="Draft screen showing Final 3 contestant selection" 
+                style={{ width: '100%', height: '10rem', objectFit: 'cover' }}
+              />
             </div>
             <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Draft Your Final 3</h4>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
@@ -118,8 +133,12 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
 
           {/* Feature 3 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1.5rem', borderRadius: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)', border: '1px solid #1e293b' }}>
-            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', backgroundColor: 'rgba(191, 255, 11, 0.15)' }}>
-              <Calendar style={{ width: '1.75rem', height: '1.75rem', color: '#BFFF0B' }} />
+            <div style={{ width: '100%', marginBottom: '1rem', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <img 
+                src={featurePredictions} 
+                alt="Weekly elimination prediction screen" 
+                style={{ width: '100%', height: '10rem', objectFit: 'cover' }}
+              />
             </div>
             <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Predict Weekly Eliminations</h4>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
@@ -152,13 +171,13 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
       <section style={{ padding: '3rem 0', borderTop: '1px solid #1e293b' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
           <Trophy style={{ width: '2.5rem', height: '2.5rem', color: '#BFFF0B' }} />
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Ready to Outwit Your Friends?</h3>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Survivors Ready?</h3>
           <p style={{ color: '#94a3b8', maxWidth: '28rem' }}>
-            Join thousands of Survivor fans already competing in fantasy leagues. Create your free account and start drafting today.
+            Join hundreds of Survivor fans already competing in fantasy leagues. Create your free account and start drafting today.
           </p>
           <button
             onClick={onSignInClick}
-            style={{ 
+            style={{
               padding: '0.75rem 2rem',
               borderRadius: '0.75rem',
               border: '2px solid #BFFF0B',
@@ -173,7 +192,7 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
               fontWeight: 600
             }}
           >
-            Get Started Free
+            Assemble Your Tribe
           </button>
         </div>
       </section>
