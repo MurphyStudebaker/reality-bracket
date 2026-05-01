@@ -3,9 +3,9 @@ import { LogIn, Trophy } from 'lucide-react';
 import logoImage from '../../assets/icon.png';
 import logo3D from '../../assets/tribal_bracket_icon_3d.png';
 import mockup from '../../assets/mockup.png';
-import featureLeague from '../../assets/feature-league.jpg';
-import featureDraft from '../../assets/feature-draft.jpg';
-import featurePredictions from '../../assets/feature-predictions.jpg';
+import featureLeague from '../../assets/feature-league.png';
+import featureDraft from '../../assets/feature-draft.png';
+import featurePredictions from '../../assets/feature-predictions.png';
 import { CountdownTimer } from "../ui/countdown-timer"
 import {
   Accordion,
@@ -65,14 +65,15 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
           />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginTop: '1rem' }}>
-          <h1 style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)', fontWeight: 700 }}>Tribal Bracket:</h1>
-          <h2 style={{ fontSize: 'clamp(2.5rem, 6vw, 3.5rem)', fontWeight: 700, marginTop: '-0.5rem' }}>
+          {/* <h1 style={{ fontSize: 'clamp(1.5rem, 6vw, 3.5rem)', fontWeight: 400, color: '#94a3b8' }}>Tribal Bracket</h1> */}
+          <h2 style={{ fontSize: 'clamp(2.5rem, 10vw, 6rem)', fontWeight: 700, marginTop: '-2rem', lineHeight: '1' }}>
             Outwit, Outplay, Out<span style={{ color: '#BFFF0B', fontStyle: 'italic' }}>draft</span>
           </h2>
+          <div className="h-4"></div>
           <p style={{ fontSize: '1.25rem', color: '#94a3b8', maxWidth: '32rem' }}>
-            100% free app for playing Survivor Fantasy Leagues with your tribe.
+            Tribal Bracket is a 100% free app for playing Survivor Fantasy Leagues with your tribe.
           </p>
-          <button
+          {/* <button
             onClick={onSignInClick}
             style={{
               width: '100%',
@@ -93,7 +94,7 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
           >
             <LogIn style={{ width: '1.25rem', height: '1.25rem' }} />
             <span style={{ fontSize: '1.125rem', fontWeight: 600 }}>Create Account to Play</span>
-          </button>
+          </button> */}
         </div>
       </section>
 
@@ -127,7 +128,7 @@ export default function LoggedOutScreen({ onSignInClick }: LoggedOutScreenProps)
             </div>
             <h4 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>Draft Your Final 3</h4>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: 1.6 }}>
-              Before the season starts, draft the three contestants you think will make it to the end. Choose wisely - your picks are locked in!
+              Before the season starts, draft the three contestants you think will make it to the end. Earn extra points when they win immunity and find idols. Choose wisely - your picks are locked in!
             </p>
           </div>
 
