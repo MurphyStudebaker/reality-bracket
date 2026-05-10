@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { SupabaseService } from '../../services/supabaseService';
+import { scoreActivityEventForPick } from '../../lib/scoringRules';
 import type { RosterSlot } from '../../models';
 
 interface ActivityEvent {
@@ -31,12 +33,24 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
       .map(slot => slot.contestant!.id);
   }, [roster]);
 
-  // Create a map of contestant ID to pick type
-  const contestantPickTypeMap = useMemo(() => {
-    const map: Record<string, 'final3' | 'boot'> = {};
-    roster.forEach(slot => {
+  const contestantPickScoringMap = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        pickType: 'final3' | 'boot';
+        weekNumber?: number;
+        activeFromWeek?: number;
+        activeThroughWeek?: number;
+      }
+    > = {};
+    roster.forEach((slot) => {
       if (slot.contestant) {
-        map[slot.contestant.id] = slot.type;
+        map[slot.contestant.id] = {
+          pickType: slot.type,
+          weekNumber: slot.weekNumber,
+          activeFromWeek: slot.activeFromWeek,
+          activeThroughWeek: slot.activeThroughWeek,
+        };
       }
     });
     return map;
@@ -53,42 +67,20 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
       setIsLoading(true);
       try {
         const events = await SupabaseService.getActivityEventsForContestants(seasonId, contestantIds);
-        
-        // Calculate points for each event based on pick type
-        const eventsWithPoints = await Promise.all(
-          events.map(async (event) => {
-            const pickType = contestantPickTypeMap[event.contestantId];
-            if (!pickType || !userId || !leagueId) {
-              return { ...event, points: 0 };
-            }
 
-            // Calculate points for this specific event
-            let points = 0;
-            if (pickType === 'boot') {
-              // Boot pick: +15 pts for eliminated or medical_evacuated
-              if (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') {
-                points = 15;
-              }
-            } else if (pickType === 'final3') {
-              // Final 3 pick: +5 tribal immunity, +10 individual immunity/idol, +5 made_jury, +5 made_final_three
-              if (event.activityType === 'tribal_immunity') {
-                points = 5;
-              } else if (
-                event.activityType === 'individual_immunity' ||
-                event.activityType === 'found_immunity_idol' ||
-                event.activityType === 'immunity'
-              ) {
-                points = 10;
-              } else if (event.activityType === 'made_jury') {
-                points = 5;
-              } else if (event.activityType === 'made_final_three') {
-                points = 5;
-              }
-            }
+        const eventsWithPoints = events.map((event) => {
+          const pickCtx = contestantPickScoringMap[event.contestantId];
+          if (!pickCtx || !userId || !leagueId) {
+            return { ...event, points: 0 };
+          }
 
-            return { ...event, points };
-          })
-        );
+          const points = scoreActivityEventForPick(
+            { weekNumber: event.weekNumber, activityType: event.activityType },
+            pickCtx
+          );
+
+          return { ...event, points };
+        });
 
         setActivityEvents(eventsWithPoints);
       } catch (error) {
@@ -100,7 +92,7 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
     };
 
     fetchActivityEvents();
-  }, [seasonId, contestantIds, contestantPickTypeMap, userId, leagueId]);
+  }, [seasonId, contestantIds, contestantPickScoringMap, userId, leagueId]);
 
   // Group events by contestant
   const eventsByContestant = useMemo(() => {
@@ -155,7 +147,7 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
               <div className="space-y-4">
                 {Object.entries(eventsByContestant).map(([contestantId, events]) => {
                   const contestant = roster.find(slot => slot.contestant?.id === contestantId)?.contestant;
-                  const pickType = contestantPickTypeMap[contestantId];
+                  const pickType = contestantPickScoringMap[contestantId]?.pickType;
                   
                   if (!contestant) return null;
 
@@ -175,27 +167,21 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700 border-2 flex-shrink-0"
                              style={{ borderColor: pickType === 'boot' ? '#ef4444' : '#BFFF0B' }}>
-                          <Avatar
-              className={`w-16 h-16 border-2 ${
-                pick.status === "eliminated"
-                  ? "border-red-400/30"
-                  : "border-red-400/30"
-              }`}
-            >
-              <AvatarImage
-                src={pick.image || ""}
-                alt={pick.name}
-                className={`object-cover ${
-                  pick.status === "eliminated" ? "grayscale" : ""
-                }`}
-              />
-              <AvatarFallback>
-                {pick.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </AvatarFallback>
-            </Avatar>
+                          <Avatar className="w-full h-full border-0">
+                            <AvatarImage
+                              src={contestant.imageUrl}
+                              alt={contestant.name}
+                              className={`object-cover ${
+                                contestant.status === 'eliminated' ? 'grayscale' : ''
+                              }`}
+                            />
+                            <AvatarFallback className="text-xs bg-slate-600 text-white">
+                              {contestant.name
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join('')}
+                            </AvatarFallback>
+                          </Avatar>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-sm font-semibold text-white">{contestant.name}</h3>

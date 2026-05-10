@@ -6,6 +6,8 @@ import type { Contestant, RosterSlot } from '../../models';
 interface RosterPicksDisplayProps {
   final3Slots: RosterSlot[];
   bootSlot?: RosterSlot;
+  /** Total points this season from correct Next Boot predictions (+15 each). */
+  seasonBootPickPoints?: number;
   nextBootWeek: number;
   latestEliminationWeek: number;
   isCurrentBootPickActive: boolean;
@@ -24,6 +26,7 @@ interface RosterPicksDisplayProps {
 export default function RosterPicksDisplay({
   final3Slots,
   bootSlot,
+  seasonBootPickPoints = 0,
   nextBootWeek,
   latestEliminationWeek,
   isCurrentBootPickActive,
@@ -198,7 +201,7 @@ export default function RosterPicksDisplay({
         >
           {isCurrentBootPickActive && bootSlot?.contestant ? (
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
                 <Avatar className="w-16 h-16 border-2 border-red-500 flex-shrink-0">
                   <AvatarImage
                     src={bootSlot.contestant.imageUrl}
@@ -220,22 +223,32 @@ export default function RosterPicksDisplay({
                   </p>
                 </div>
               </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-2xl font-bold text-[#BFFF0B]">{seasonBootPickPoints}</div>
+                <div className="text-xs text-slate-500">boot picks (season)</div>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-4 py-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
-                  <UserPlus className="w-8 h-8 text-slate-600" />
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-red-500/50 flex items-center justify-center flex-shrink-0">
+                    <UserPlus className="w-8 h-8 text-slate-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-slate-400">
+                      Who will get their torch snuffed next?
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {canDraftBoot
+                        ? `Select a contestant for Week ${nextBootWeek} before the elimination airs. Last week you picked ${bootSlot?.contestant?.name || 'No one'}.`
+                        : `Waiting for Week ${latestEliminationWeek || 1} elimination to unlock Week ${nextBootWeek}.`}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-400">
-                    Who will get their torch snuffed next?
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {canDraftBoot
-                      ? `Select a contestant for Week ${nextBootWeek} before the elimination airs. Last week you picked ${bootSlot?.contestant?.name || 'No one'}.`
-                      : `Waiting for Week ${latestEliminationWeek || 1} elimination to unlock Week ${nextBootWeek}.`}
-                  </p>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-2xl font-bold text-[#BFFF0B]">{seasonBootPickPoints}</div>
+                  <div className="text-xs text-slate-500">points</div>
                 </div>
               </div>
               {showBootDraftButton && (
