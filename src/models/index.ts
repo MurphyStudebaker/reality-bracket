@@ -102,4 +102,6 @@ export interface RosterSlot {
   points?: number;
   pickId?: string;
   weekNumber?: number;
+  activeFromWeek?: number;
+  activeThroughWeek?: number;
 }

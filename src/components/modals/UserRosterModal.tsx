@@ -120,6 +120,13 @@ export default function UserRosterModal({
     return rosterSlots;
   }, [picks, pickPointsMap]);
 
+  const seasonBootPickPoints = useMemo(() => {
+    if (!picks?.length) return 0;
+    return picks
+      .filter((p) => p.pickType === 'boot')
+      .reduce((sum, p) => sum + (pickPointsMap[p.id] ?? 0), 0);
+  }, [picks, pickPointsMap]);
+
   const final3Slots = roster.filter(slot => slot.type === 'final3');
   const bootSlot = roster.find(slot => slot.type === 'boot');
   const currentBootWeek = bootSlot?.weekNumber ?? 0;
@@ -149,6 +156,7 @@ export default function UserRosterModal({
               <RosterPicksDisplay
                 final3Slots={final3Slots}
                 bootSlot={bootSlot}
+                seasonBootPickPoints={seasonBootPickPoints}
                 nextBootWeek={nextBootWeek}
                 latestEliminationWeek={latestEliminationWeek}
                 isCurrentBootPickActive={isCurrentBootPickActive}

@@ -100,6 +100,8 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
           rosterSlots[positionIndex].points = pickPointsMap[pick.id] || 0;
           rosterSlots[positionIndex].pickId = pick.id;
           rosterSlots[positionIndex].weekNumber = pick.weekNumber;
+          rosterSlots[positionIndex].activeFromWeek = pick.activeFromWeek;
+          rosterSlots[positionIndex].activeThroughWeek = pick.activeThroughWeek;
         }
       });
       
@@ -114,6 +116,14 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
     }
 
     return rosterSlots;
+  }, [picks, pickPointsMap]);
+
+  /** Sum of points from all weekly Next Boot picks (each correct boot is +15). */
+  const seasonBootPickPoints = useMemo(() => {
+    if (!picks?.length) return 0;
+    return picks
+      .filter((p) => p.pickType === 'boot')
+      .reduce((sum, p) => sum + (pickPointsMap[p.id] ?? 0), 0);
   }, [picks, pickPointsMap]);
 
   // Combine all errors
@@ -259,6 +269,7 @@ export const useRosterViewModel = (leagueId: string | null, userId: string | nul
   return {
     roster,
     picks,
+    seasonBootPickPoints,
     availableContestants,
     totalPoints,
     isLoading,

@@ -84,6 +84,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const {
     roster,
     picks = [],
+    seasonBootPickPoints = 0,
     availableContestants,
     isLoading: isLoadingRoster,
     error: rosterError,
@@ -468,6 +469,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
       <RosterPicksDisplay
         final3Slots={final3Slots}
         bootSlot={bootSlot}
+        seasonBootPickPoints={seasonBootPickPoints}
         nextBootWeek={nextBootWeek}
         latestEliminationWeek={latestEliminationWeek}
         isCurrentBootPickActive={isCurrentBootPickActive}
@@ -515,8 +517,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
                 <li>Drafted Player wins Individual Immunity: +10 pts</li>
                 <li>Drafted Player finds an Immunity Idol: +10 pts</li>
                 <li>Drafted Player Makes Jury: +5 pts</li>
-                <li>Drafted Player Finishes in Final 3: +5 pts</li>
-                <li>Drafted Player Finishes in Predicted Order: +10 pts</li>
+                <li>Drafted Player Finishes in Final 3: +10 pts</li>
+                <li>Drafted Player Finishes in Predicted Order: +15 pts</li>
               </ul>
           </div>
         </div>

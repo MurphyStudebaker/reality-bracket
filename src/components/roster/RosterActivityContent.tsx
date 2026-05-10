@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { Contestant, RosterPickWithContestant, RosterSlot } from '../../models';
+import { scoreActivityEventForPick } from '../../lib/scoringRules';
 
 interface ActivityEvent {
   id: string;
@@ -31,9 +32,27 @@ export default function RosterActivityContent({
   leagueId,
 }: RosterActivityContentProps) {
   const contestantMetadata = useMemo<
-    Record<string, { contestant: Contestant; pickType: 'final3' | 'boot'; weekNumber?: number }>
+    Record<
+      string,
+      {
+        contestant: Contestant;
+        pickType: 'final3' | 'boot';
+        weekNumber?: number;
+        activeFromWeek?: number;
+        activeThroughWeek?: number;
+      }
+    >
   >(() => {
-    const map: Record<string, { contestant: Contestant; pickType: 'final3' | 'boot'; weekNumber?: number }> = {};
+    const map: Record<
+      string,
+      {
+        contestant: Contestant;
+        pickType: 'final3' | 'boot';
+        weekNumber?: number;
+        activeFromWeek?: number;
+        activeThroughWeek?: number;
+      }
+    > = {};
 
     picks.forEach((pick) => {
       if (pick.contestant) {
@@ -41,6 +60,8 @@ export default function RosterActivityContent({
           contestant: pick.contestant,
           pickType: pick.pickType,
           weekNumber: pick.weekNumber,
+          activeFromWeek: pick.activeFromWeek,
+          activeThroughWeek: pick.activeThroughWeek,
         };
       }
     });
@@ -51,6 +72,8 @@ export default function RosterActivityContent({
           contestant: slot.contestant,
           pickType: slot.type,
           weekNumber: slot.weekNumber,
+          activeFromWeek: slot.activeFromWeek,
+          activeThroughWeek: slot.activeThroughWeek,
         };
       }
     });
@@ -74,61 +97,40 @@ export default function RosterActivityContent({
     createdAt: string;
   }>>(activityKey, fetcher);
 
-  // Calculate points for each event based on pick type
-  const activityEvents = useMemo(() => {
-    return rawEvents
-      .map((event) => {
-        const metadata = contestantMetadata[event.contestantId];
-        const pickType = metadata?.pickType;
-        if (!pickType) {
-          return { ...event, points: 0 };
-        }
+  // Calculate points for each event based on pick type (keep zero-point weeks so we can show Week N + empty state)
+  const scoredActivityEvents = useMemo(() => {
+    return rawEvents.map((event) => {
+      const metadata = contestantMetadata[event.contestantId];
+      const pickType = metadata?.pickType;
+      if (!pickType || !metadata) {
+        return { ...event, points: 0 };
+      }
 
-        // Calculate points for this specific event
-        let points = 0;
-        if (pickType === 'boot') {
-          // Boot pick: +15 pts for eliminated or medical_evacuated
-          // Must match week_number (scoring requires rp.week_number = ae.week_number)
-          const weekMatch = metadata.weekNumber != null && metadata.weekNumber === event.weekNumber;
-          if (
-            (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') &&
-            weekMatch
-          ) {
-            points = 15;
-          }
-        } else if (pickType === 'final3') {
-          // Final 3 pick: +5 tribal immunity, +10 individual immunity/idol, +5 made_jury, +5 made_final_three
-          if (event.activityType === 'tribal_immunity') {
-            points = 5;
-          } else if (
-            event.activityType === 'individual_immunity' ||
-            event.activityType === 'found_immunity_idol' ||
-            event.activityType === 'immunity'
-          ) {
-            points = 10;
-          } else if (event.activityType === 'made_jury') {
-            points = 5;
-          } else if (event.activityType === 'made_final_three') {
-            points = 5;
-          }
+      const points = scoreActivityEventForPick(
+        { weekNumber: event.weekNumber, activityType: event.activityType },
+        {
+          pickType,
+          weekNumber: metadata.weekNumber,
+          activeFromWeek: metadata.activeFromWeek,
+          activeThroughWeek: metadata.activeThroughWeek,
         }
+      );
 
-        return { ...event, points };
-      })
-      .filter((event) => event.points > 0);
+      return { ...event, points };
+    });
   }, [rawEvents, contestantMetadata]);
 
-  // Group events by week
+  // Group scored events by week (includes weeks where the roster earned 0 pts)
   const eventsByWeek = useMemo<Record<number, ActivityEvent[]>>(() => {
     const grouped: Record<number, ActivityEvent[]> = {};
-    activityEvents.forEach(event => {
+    scoredActivityEvents.forEach((event) => {
       if (!grouped[event.weekNumber]) {
         grouped[event.weekNumber] = [];
       }
       grouped[event.weekNumber].push(event);
     });
     return grouped;
-  }, [activityEvents]);
+  }, [scoredActivityEvents]);
 
   // Format activity type for display
   const formatActivityType = (type: string): string => {
@@ -158,7 +160,7 @@ export default function RosterActivityContent({
     <div className="w-full">
       {isLoading ? (
         <div className="text-center text-slate-400 py-4 text-sm">Loading activity...</div>
-      ) : activityEvents.length === 0 ? (
+      ) : scoredActivityEvents.length === 0 ? (
         <div className="text-center text-slate-400 py-4 text-sm">
           No activity events yet. Points will appear here as events are added.
         </div>
@@ -170,17 +172,25 @@ export default function RosterActivityContent({
             .map((weekNumber) => {
               const events = eventsByWeek[weekNumber];
               const totalPoints = events.reduce((sum, event) => sum + event.points, 0);
-              const sortedEvents = [...events].sort((a, b) => {
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-              });
+              const sortedEvents = [...events]
+                .filter((e) => e.points > 0)
+                .sort((a, b) => {
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
 
               return (
                 <div key={weekNumber}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 gap-5">
                     <h3 className="text-lg font-semibold text-white">Week {weekNumber}</h3>
-                    <div className="text-sm font-semibold" style={{ color: '#BFFF0B' }}>
-                      +{totalPoints} pts
-                    </div>
+                    {totalPoints > 0 ? (
+                      <div className="text-sm font-semibold shrink-0" style={{ color: '#BFFF0B' }}>
+                        +{totalPoints} pts
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 text-right">
+                        No points awarded to your roster this week.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-3">
                     {sortedEvents.map((event) => {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
+import { scoreActivityEventForPick } from '../../lib/scoringRules';
 
 interface ActivityEvent {
   id: string;
@@ -38,7 +39,6 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     activeFromWeek?: number;
     activeThroughWeek?: number;
     displayName: string;
-    weekNumber?: number;
   }>>(rosterPicksKey, fetcher);
 
   // Fetch activity events using SWR
@@ -56,12 +56,14 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
       return [];
     }
 
-    // Create a map of contestant ID to roster picks (include weekNumber for boot picks)
+    // Create a map of contestant ID to roster picks (fields must match Postgres RPC scoring)
     const contestantPicksMap: Record<string, Array<{
       userId: string;
       displayName: string;
       pickType: 'final3' | 'boot';
       weekNumber?: number;
+      activeFromWeek?: number;
+      activeThroughWeek?: number;
     }>> = {};
 
     rosterPicks.forEach(pick => {
@@ -73,6 +75,8 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
         displayName: pick.displayName,
         pickType: pick.pickType,
         weekNumber: pick.weekNumber,
+        activeFromWeek: pick.activeFromWeek,
+        activeThroughWeek: pick.activeThroughWeek,
       });
     });
 
@@ -83,42 +87,15 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
       const picks = contestantPicksMap[event.contestantId] || [];
       
       picks.forEach(pick => {
-        let points = 0;
-        
-        if (pick.pickType === 'boot') {
-          // Boot pick: +15 pts for eliminated or medical_evacuated
-          // Must match week_number (scoring requires rp.week_number = ae.week_number)
-          if (
-            (event.activityType === 'eliminated' || event.activityType === 'medical_evacuated') &&
-            pick.weekNumber != null &&
-            pick.weekNumber === event.weekNumber
-          ) {
-            points = 15;
+        const points = scoreActivityEventForPick(
+          { weekNumber: event.weekNumber, activityType: event.activityType },
+          {
+            pickType: pick.pickType,
+            weekNumber: pick.weekNumber,
+            activeFromWeek: pick.activeFromWeek,
+            activeThroughWeek: pick.activeThroughWeek,
           }
-        } else if (pick.pickType === 'final3') {
-          const inActiveWindow =
-            (pick.activeFromWeek ?? 1) <= event.weekNumber &&
-            (pick.activeThroughWeek === undefined || pick.activeThroughWeek >= event.weekNumber);
-
-          if (!inActiveWindow) {
-            return;
-          }
-
-          // Final 3 pick: +5 tribal immunity, +10 individual immunity/idol, +5 made_jury, +5 made_final_three
-          if (event.activityType === 'tribal_immunity') {
-            points = 5;
-          } else if (
-            event.activityType === 'individual_immunity' ||
-            event.activityType === 'found_immunity_idol' ||
-            event.activityType === 'immunity'
-          ) {
-            points = 10;
-          } else if (event.activityType === 'made_jury') {
-            points = 5;
-          } else if (event.activityType === 'made_final_three') {
-            points = 5;
-          }
-        }
+        );
 
         if (points > 0) {
           activities.push({
