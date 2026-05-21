@@ -97,8 +97,11 @@ export function scoreActivityEventForPick(
     ) {
       return 10;
     }
-    if (t === 'made_jury' || t === 'made_final_three') {
+    if (t === 'made_jury') {
       return 5;
+    }
+    if (t === 'made_final_three') {
+      return 10;
     }
     return 0;
   }
