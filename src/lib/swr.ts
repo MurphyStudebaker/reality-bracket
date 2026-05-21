@@ -68,6 +68,9 @@ export const fetcher = async <T = any>(key: string): Promise<T> => {
     
     case 'seasons':
       return await SupabaseService.getSeasons() as T;
+
+    case 'season-status':
+      return await SupabaseService.getSeasonById(args[0]) as T;
     
     case 'activity':
       return await SupabaseService.getLeagueActivity(args[0], parseInt(args[1] || '20')) as T;

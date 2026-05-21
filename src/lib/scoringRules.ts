@@ -4,6 +4,7 @@
  * - calculate_pick_points
  * - calculate_user_total_points
  * See: src/services/migrations/update_immunity_scoring_functions.sql
+ *      src/services/migrations/add_predicted_order_scoring.sql
  */
 
 export interface ActivityEventScoringInput {
@@ -17,6 +18,31 @@ export interface RosterPickScoringInput {
   weekNumber?: number;
   activeFromWeek?: number;
   activeThroughWeek?: number;
+  final3Position?: number;
+  seasonCompleted?: boolean;
+}
+
+const PLACEMENT_EVENT_TO_POSITION: Record<string, number> = {
+  finished_first: 1,
+  finished_second: 2,
+  finished_third: 3,
+};
+
+function scorePredictedOrderPlacement(
+  activityType: string,
+  pick: RosterPickScoringInput
+): number {
+  if (!pick.seasonCompleted) {
+    return 0;
+  }
+  if (pick.activeThroughWeek != null) {
+    return 0;
+  }
+  const expectedPosition = PLACEMENT_EVENT_TO_POSITION[activityType];
+  if (expectedPosition == null || pick.final3Position == null) {
+    return 0;
+  }
+  return pick.final3Position === expectedPosition ? 15 : 0;
 }
 
 /**
@@ -42,6 +68,15 @@ export function scoreActivityEventForPick(
   }
 
   if (pick.pickType === 'final3') {
+    const placementPoints = scorePredictedOrderPlacement(t, pick);
+    if (placementPoints > 0) {
+      return placementPoints;
+    }
+
+    if (PLACEMENT_EVENT_TO_POSITION[t] != null) {
+      return 0;
+    }
+
     if (pick.activeFromWeek == null) {
       return 0;
     }

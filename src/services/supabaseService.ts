@@ -470,10 +470,14 @@ export class SupabaseService {
         return [];
       }
 
-      // Filter by season status: 'active' or 'upcoming'
+      // Filter by season status: active, upcoming, or completed
       const filteredMembers = memberData.filter((member: any) => {
         const season = member.leagues.seasons;
-        return season.status === 'active' || season.status === 'upcoming';
+        return (
+          season.status === 'active' ||
+          season.status === 'upcoming' ||
+          season.status === 'completed'
+        );
       });
 
       // For each league, get member count
@@ -496,6 +500,7 @@ export class SupabaseService {
             season: season.name || `Season ${season.number}`,
             seasonNumber: season.number,
             seasonName: season.name || `Season ${season.number}`,
+            seasonStatus: season.status as 'active' | 'completed' | 'upcoming',
             memberCount,
             inviteCode: league.invite_code,
             createdById: league.created_by_id || '',
@@ -1601,7 +1606,7 @@ export class SupabaseService {
     seasonId: string,
     contestantId: string,
     weekNumber: number,
-    activityType: 'tribal_immunity' | 'individual_immunity' | 'found_immunity_idol' | 'eliminated' | 'medical_evacuated' | 'made_merge' | 'made_final_three' | 'made_jury'
+    activityType: 'tribal_immunity' | 'individual_immunity' | 'found_immunity_idol' | 'eliminated' | 'medical_evacuated' | 'made_merge' | 'made_final_three' | 'made_jury' | 'finished_first' | 'finished_second' | 'finished_third'
   ): Promise<{ id: string } | null> {
     try {
       const { data, error } = await supabase

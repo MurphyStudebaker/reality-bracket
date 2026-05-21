@@ -85,4 +85,53 @@ describe('scoreActivityEventForPick', () => {
       expect(scoreActivityEventForPick(ev(10, 'tribal_immunity'), windowPick)).toBe(5);
     });
   });
+
+  describe('predicted order placement (season complete)', () => {
+    const activeFinal3Pick = {
+      pickType: 'final3' as const,
+      activeFromWeek: 1,
+      activeThroughWeek: undefined,
+      final3Position: 2,
+      seasonCompleted: true,
+    };
+
+    it('scores 15 when contestant finishes in predicted slot', () => {
+      expect(scoreActivityEventForPick(ev(13, 'finished_second'), activeFinal3Pick)).toBe(15);
+      expect(
+        scoreActivityEventForPick(ev(13, 'finished_first'), {
+          ...activeFinal3Pick,
+          final3Position: 1,
+        })
+      ).toBe(15);
+      expect(
+        scoreActivityEventForPick(ev(13, 'finished_third'), {
+          ...activeFinal3Pick,
+          final3Position: 3,
+        })
+      ).toBe(15);
+    });
+
+    it('scores 0 when finish does not match predicted slot', () => {
+      expect(scoreActivityEventForPick(ev(13, 'finished_first'), activeFinal3Pick)).toBe(0);
+      expect(scoreActivityEventForPick(ev(13, 'finished_third'), activeFinal3Pick)).toBe(0);
+    });
+
+    it('scores 0 when season is not completed', () => {
+      expect(
+        scoreActivityEventForPick(ev(13, 'finished_second'), {
+          ...activeFinal3Pick,
+          seasonCompleted: false,
+        })
+      ).toBe(0);
+    });
+
+    it('scores 0 for replaced/inactive final3 picks', () => {
+      expect(
+        scoreActivityEventForPick(ev(13, 'finished_second'), {
+          ...activeFinal3Pick,
+          activeThroughWeek: 8,
+        })
+      ).toBe(0);
+    });
+  });
 });

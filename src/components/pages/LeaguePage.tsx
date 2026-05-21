@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, Users, TrendingUp, TrendingDown, Minus, Crown, Award, Medal, Copy, Check, Play, Lock, Bell, ArrowUpDown } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import LeagueSelector from '../common/LeagueSelector';
+import SeasonCompleteBanner from '../common/SeasonCompleteBanner';
 import LeagueActivityContent from '../league/LeagueActivityContent';
 import ModifyDraftOrderModal from '../modals/ModifyDraftOrderModal';
 import ConfirmationModal from '../modals/ConfirmationModal';
@@ -11,7 +12,7 @@ import { Progress } from '../ui/progress';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
-import type { Contestant, LeagueStanding } from '../../models';
+import type { Contestant, LeagueStanding, Season } from '../../models';
 
 interface League {
   id: string;
@@ -22,6 +23,7 @@ interface League {
   memberCount: number;
   inviteCode: string;
   createdById?: string;
+  seasonStatus?: 'active' | 'completed' | 'upcoming';
 }
 
 interface DraftOrderMember {
@@ -320,6 +322,12 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   );
   const hasSeasonActivityEvents = leagueActivityEvents.length > 0;
 
+  const seasonStatusKey = createKey('season-status', seasonId);
+  const { data: seasonData } = useSWR<Season | null>(seasonStatusKey, fetcher);
+  const isSeasonComplete =
+    seasonData?.status === 'completed' ||
+    currentLeagueData?.seasonStatus === 'completed';
+
   // Check draft status: not_started, in_progress, or completed
   const draftStatusKey = createKey('draft-status', selectedLeague?.id);
   const { data: draftStatus = 'not_started' } = useSWR<'not_started' | 'in_progress' | 'completed'>(
@@ -439,11 +447,11 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   const bootSlotIndex = roster.findIndex(slot => slot.type === 'boot');
   const bootSlot = bootSlotIndex >= 0 ? roster[bootSlotIndex] : undefined;
   const currentBootWeek = bootSlot?.weekNumber ?? 0;
-  const canDraftBoot = bootSlotIndex >= 0 && currentBootWeek < nextBootWeek;
-  const shouldShowBootDraftPrompt = draftStatus === 'completed' && canDraftBoot;
+  const canDraftBoot = !isSeasonComplete && bootSlotIndex >= 0 && currentBootWeek < nextBootWeek;
+  const shouldShowBootDraftPrompt = !isSeasonComplete && draftStatus === 'completed' && canDraftBoot;
 
   const medicalEvacReplacementsNeeded = useMemo<MedicalEvacReplacementNeed[]>(() => {
-    if (!roster.length || !leagueActivityEvents.length) {
+    if (isSeasonComplete || !roster.length || !leagueActivityEvents.length) {
       return [];
     }
 
@@ -469,7 +477,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
       });
 
     return replacements.sort((a, b) => a.slotIndex - b.slotIndex);
-  }, [roster, leagueActivityEvents]);
+  }, [roster, leagueActivityEvents, isSeasonComplete]);
 
   const currentMedicalEvacReplacement = medicalEvacReplacementsNeeded[0] || null;
 
@@ -608,7 +616,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
     return (
       <div className="max-w-4xl mx-auto p-4 lg:p-8">
         <div className="text-center text-slate-400">
-          <p className="mb-2">No active or upcoming leagues found.</p>
+          <p className="mb-2">No leagues found.</p>
           <p className="text-sm">Join or create a league to get started!</p>
         </div>
       </div>
@@ -650,11 +658,13 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
             <p className="text-sm">
               Survivor {currentLeagueData?.seasonNumber || selectedLeague.seasonNumber}: {currentLeagueData?.seasonName || selectedLeague.seasonName}
             </p>
-            {currentWeek > 0 && (
+            {isSeasonComplete ? (
+              <p className="text-xs text-purple-400 mt-0.5">Season Complete</p>
+            ) : currentWeek > 0 ? (
               <p className="text-xs text-slate-500 mt-0.5">
                 Week {currentWeek}
               </p>
-            )}
+            ) : null}
           </div>
           {(currentLeagueData?.inviteCode || selectedLeague?.inviteCode) && (
             <>
@@ -677,8 +687,10 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         </div>
       </div>
 
+      {isSeasonComplete && <SeasonCompleteBanner />}
+
       {/* Draft Status - Show current draft round and whose turn it is */}
-      {currentMedicalEvacReplacement ? (
+      {!isSeasonComplete && currentMedicalEvacReplacement ? (
         <div className="mb-6 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border-2 border-slate-700 bg-slate-900/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-1">
@@ -1120,6 +1132,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           <LeagueActivityContent
             leagueId={selectedLeague?.id || null}
             seasonId={seasonId || null}
+            seasonCompleted={isSeasonComplete}
           />
         </div>
       </div>

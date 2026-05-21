@@ -19,6 +19,7 @@ interface RosterPicksDisplayProps {
   onDraftFinal3Replacement?: (index: number) => void;
   onDraftBoot?: () => void;
   headingLevel?: 'h2' | 'h3';
+  seasonComplete?: boolean;
   isFinal3ContestantEliminated: (contestant: Contestant | null) => boolean;
   isFinal3ContestantMedicalEvacuated?: (contestant: Contestant | null) => boolean;
 }
@@ -38,14 +39,15 @@ export default function RosterPicksDisplay({
   onDraftFinal3Replacement,
   onDraftBoot,
   headingLevel = 'h2',
+  seasonComplete = false,
   isFinal3ContestantEliminated,
   isFinal3ContestantMedicalEvacuated,
 }: RosterPicksDisplayProps) {
   const HeadingTag = headingLevel;
   const canDraftFinal3 = (position: 1 | 2 | 3) =>
-    hasDraftStarted && Boolean(isUserTurnForPosition?.(position));
-  const showFinal3DraftButton = Boolean(onDraftFinal3);
-  const showBootDraftButton = Boolean(onDraftBoot);
+    !seasonComplete && hasDraftStarted && Boolean(isUserTurnForPosition?.(position));
+  const showFinal3DraftButton = Boolean(onDraftFinal3) && !seasonComplete;
+  const showBootDraftButton = Boolean(onDraftBoot) && !seasonComplete;
   const final3Labels = ['Sole Survivor', 'Runner Up', 'Third Place'] as const;
 
   return (
@@ -124,7 +126,7 @@ export default function RosterPicksDisplay({
                       </div>
                     </div>
                   </div>
-                  {isMedicalEvacuated && onDraftFinal3Replacement && (
+                  {isMedicalEvacuated && onDraftFinal3Replacement && !seasonComplete && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/30">
                       <button
                         onClick={() => onDraftFinal3Replacement(index)}
@@ -185,11 +187,13 @@ export default function RosterPicksDisplay({
           <div>
             <HeadingTag className="text-2xl">Next Eliminated Pick</HeadingTag>
             <p className="text-xs text-slate-500 mt-0.5">
-              {isCurrentBootPickActive
-                ? ''
-                : latestEliminationWeek === 0
-                  ? `Week ${nextBootWeek} pick is available now.`
-                  : `Next Eliminated pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
+              {seasonComplete
+                ? 'Boot picks are closed for this season.'
+                : isCurrentBootPickActive
+                  ? ''
+                  : latestEliminationWeek === 0
+                    ? `Week ${nextBootWeek} pick is available now.`
+                    : `Next Eliminated pick for Week ${nextBootWeek} unlocks after Week ${latestEliminationWeek} elimination.`}
             </p>
           </div>
         </div>
