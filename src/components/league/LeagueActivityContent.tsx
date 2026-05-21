@@ -25,10 +25,14 @@ interface UserActivity {
 interface LeagueActivityContentProps {
   leagueId: string | null;
   seasonId: string | null;
+  seasonCompleted?: boolean;
 }
 
-export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActivityContentProps) {
-  // Fetch roster picks using SWR
+export default function LeagueActivityContent({
+  leagueId,
+  seasonId,
+  seasonCompleted = false,
+}: LeagueActivityContentProps) {
   const rosterPicksKey = createKey('league-activity-roster-picks', leagueId);
   const { data: rosterPicks = [], isLoading: isLoadingPicks } = useSWR<Array<{
     id: string;
@@ -36,12 +40,12 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     contestantId: string;
     pickType: 'final3' | 'boot';
     weekNumber?: number;
+    final3Position?: number;
     activeFromWeek?: number;
     activeThroughWeek?: number;
     displayName: string;
   }>>(rosterPicksKey, fetcher);
 
-  // Fetch activity events using SWR
   const activityEventsKey = createKey('league-activity-events', seasonId);
   const { data: activityEvents = [], isLoading: isLoadingEvents } = useSWR<ActivityEvent[]>(
     activityEventsKey,
@@ -50,18 +54,17 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
 
   const isLoading = isLoadingPicks || isLoadingEvents;
 
-  // Process and combine the data
   const userActivities = useMemo(() => {
     if (!leagueId || !seasonId || rosterPicks.length === 0 || activityEvents.length === 0) {
       return [];
     }
 
-    // Create a map of contestant ID to roster picks (fields must match Postgres RPC scoring)
     const contestantPicksMap: Record<string, Array<{
       userId: string;
       displayName: string;
       pickType: 'final3' | 'boot';
       weekNumber?: number;
+      final3Position?: number;
       activeFromWeek?: number;
       activeThroughWeek?: number;
     }>> = {};
@@ -75,25 +78,27 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
         displayName: pick.displayName,
         pickType: pick.pickType,
         weekNumber: pick.weekNumber,
+        final3Position: pick.final3Position,
         activeFromWeek: pick.activeFromWeek,
         activeThroughWeek: pick.activeThroughWeek,
       });
     });
 
-    // Calculate points for each activity event
     const activities: UserActivity[] = [];
-    
+
     activityEvents.forEach(event => {
       const picks = contestantPicksMap[event.contestantId] || [];
-      
+
       picks.forEach(pick => {
         const points = scoreActivityEventForPick(
           { weekNumber: event.weekNumber, activityType: event.activityType },
           {
             pickType: pick.pickType,
             weekNumber: pick.weekNumber,
+            final3Position: pick.final3Position,
             activeFromWeek: pick.activeFromWeek,
             activeThroughWeek: pick.activeThroughWeek,
+            seasonCompleted,
           }
         );
 
@@ -112,9 +117,8 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     });
 
     return activities;
-  }, [rosterPicks, activityEvents, leagueId, seasonId]);
+  }, [rosterPicks, activityEvents, leagueId, seasonId, seasonCompleted]);
 
-  // Group activities by week
   const activitiesByWeek = useMemo(() => {
     const grouped: Record<number, UserActivity[]> = {};
     userActivities.forEach(activity => {
@@ -126,18 +130,20 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     return grouped;
   }, [userActivities]);
 
-  // Format activity type for display
   const formatActivityType = (type: string): string => {
     const typeMap: Record<string, string> = {
-      'tribal_immunity': 'Tribal Immunity',
-      'individual_immunity': 'Individual Immunity',
-      'found_immunity_idol': 'Found Immunity Idol',
-      'immunity': 'Immunity',
-      'eliminated': 'Eliminated',
-      'medical_evacuated': 'Medical Evacuation',
-      'made_merge': 'Made Merge',
-      'made_final_three': 'Made Final 3',
-      'made_jury': 'Made Jury',
+      tribal_immunity: 'Tribal Immunity',
+      individual_immunity: 'Individual Immunity',
+      found_immunity_idol: 'Found Immunity Idol',
+      immunity: 'Immunity',
+      eliminated: 'Eliminated',
+      medical_evacuated: 'Medical Evacuation',
+      made_merge: 'Made Merge',
+      made_final_three: 'Made Final 3',
+      made_jury: 'Made Jury',
+      finished_first: 'Finished as Sole Survivor',
+      finished_second: 'Finished as Runner Up',
+      finished_third: 'Finished in Third Place',
     };
     return typeMap[type] || type;
   };
@@ -156,7 +162,6 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     );
   }
 
-  // Get weeks sorted (newest first)
   const weeks = Object.keys(activitiesByWeek)
     .map(Number)
     .sort((a, b) => b - a);
@@ -165,8 +170,7 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     <div className="w-full space-y-6 flex flex-col gap-4">
       {weeks.map(week => {
         const weekActivities = activitiesByWeek[week];
-        
-        // Group by user for this week
+
         const byUser: Record<string, UserActivity[]> = {};
         weekActivities.forEach(activity => {
           if (!byUser[activity.userId]) {
@@ -225,4 +229,3 @@ export default function LeagueActivityContent({ leagueId, seasonId }: LeagueActi
     </div>
   );
 }
-

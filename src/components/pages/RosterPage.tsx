@@ -5,11 +5,12 @@ import LeagueSelector from '../common/LeagueSelector';
 import ContestantReplacementModal from '../modals/ContestantReplacementModal';
 import RosterActivityContent from '../roster/RosterActivityContent';
 import RosterPicksDisplay from '../roster/RosterPicksDisplay';
+import SeasonCompleteBanner from '../common/SeasonCompleteBanner';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
-import type { Contestant, RosterSlot } from '../../models';
+import type { Contestant, RosterSlot, Season } from '../../models';
 
 interface League {
   id: string;
@@ -19,6 +20,7 @@ interface League {
   seasonName: string;
   memberCount: number;
   inviteCode: string;
+  seasonStatus?: 'active' | 'completed' | 'upcoming';
 }
 
 interface RosterPageProps {
@@ -113,6 +115,12 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     fetcher
   );
 
+  const seasonStatusKey = createKey('season-status', seasonId);
+  const { data: seasonData } = useSWR<Season | null>(seasonStatusKey, fetcher);
+  const isSeasonComplete =
+    seasonData?.status === 'completed' ||
+    currentLeagueData?.seasonStatus === 'completed';
+
   // Check if draft has started
   const draftStartedKey = createKey('draft-started', selectedLeague?.id);
   const { data: hasDraftStarted = false } = useSWR<boolean>(
@@ -199,9 +207,9 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   const bootSlotIndex = roster.findIndex(slot => slot.type === 'boot');
   const currentBootWeek = bootSlot?.weekNumber ?? 0;
   const isCurrentBootPickActive = Boolean(bootSlot?.contestant && bootSlot?.weekNumber === nextBootWeek);
-  const canDraftBoot = currentBootWeek < nextBootWeek;
+  const canDraftBoot = !isSeasonComplete && currentBootWeek < nextBootWeek;
   const medicalEvacReplacementsNeeded = useMemo<MedicalEvacReplacementNeed[]>(() => {
-    if (!final3Slots.length || !leagueActivityEvents.length) {
+    if (isSeasonComplete || !final3Slots.length || !leagueActivityEvents.length) {
       return [];
     }
 
@@ -225,7 +233,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     });
 
     return replacements.sort((a, b) => a.slotIndex - b.slotIndex);
-  }, [final3Slots, leagueActivityEvents]);
+  }, [final3Slots, leagueActivityEvents, isSeasonComplete]);
   const medicallyEvacuatedContestantIds = useMemo(
     () =>
       Array.from(
@@ -242,8 +250,8 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     medicalEvacReplacementsNeeded.some(replacement => replacement.slotIndex === slotIndex);
 
   const handleDraftClick = (index: number) => {
-    if (!hasDraftStarted) {
-      return; // Don't allow drafting if draft hasn't started
+    if (!hasDraftStarted || isSeasonComplete) {
+      return;
     }
 
     const slot = roster[index];
@@ -387,7 +395,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
     return (
       <div className="max-w-4xl mx-auto p-4 lg:p-8">
         <div className="text-center text-slate-400">
-          <p className="mb-2">No active or upcoming leagues found.</p>
+          <p className="mb-2">No leagues found.</p>
           <p className="text-sm">Join or create a league to get started!</p>
         </div>
       </div>
@@ -420,11 +428,13 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             <p className="text-sm">
               Survivor {currentLeagueData?.seasonNumber || selectedLeague.seasonNumber}: {currentLeagueData?.seasonName || selectedLeague.seasonName}
             </p>
-            {currentWeek > 0 && (
+            {isSeasonComplete ? (
+              <p className="text-xs text-purple-400 mt-0.5">Season Complete</p>
+            ) : currentWeek > 0 ? (
               <p className="text-xs text-slate-500 mt-0.5">
                 Week {currentWeek}
               </p>
-            )}
+            ) : null}
           </div>
           {(currentLeagueData?.inviteCode || selectedLeague.inviteCode) && (
             <>
@@ -447,8 +457,10 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
         </div>
       </div>
 
+      {isSeasonComplete && <SeasonCompleteBanner />}
+
       {/* Draft Not Started Message */}
-      {!hasDraftStarted && (
+      {!isSeasonComplete && !hasDraftStarted && (
         <div className="mb-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-xl border-2 border-amber-600/50 p-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -483,6 +495,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
           if (!canDraftBoot || bootSlotIndex === -1) return;
           handleDraftClick(bootSlotIndex);
         }}
+        seasonComplete={isSeasonComplete}
         isFinal3ContestantEliminated={isFinal3ContestantEliminated}
         isFinal3ContestantMedicalEvacuated={isFinal3ContestantMedicalEvacuated}
       />
@@ -498,6 +511,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
             seasonId={seasonId || null}
             userId={user?.id || null}
             leagueId={selectedLeague?.id || null}
+            seasonCompleted={isSeasonComplete}
           />
         </div>
       </div>

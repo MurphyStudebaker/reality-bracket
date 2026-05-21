@@ -22,14 +22,14 @@ interface RosterActivityContentProps {
   seasonId: string | null;
   userId: string | null;
   leagueId: string | null;
+  seasonCompleted?: boolean;
 }
 
 export default function RosterActivityContent({
   roster,
   picks,
   seasonId,
-  userId,
-  leagueId,
+  seasonCompleted = false,
 }: RosterActivityContentProps) {
   const contestantMetadata = useMemo<
     Record<
@@ -40,6 +40,7 @@ export default function RosterActivityContent({
         weekNumber?: number;
         activeFromWeek?: number;
         activeThroughWeek?: number;
+        final3Position?: number;
       }
     >
   >(() => {
@@ -51,6 +52,7 @@ export default function RosterActivityContent({
         weekNumber?: number;
         activeFromWeek?: number;
         activeThroughWeek?: number;
+        final3Position?: number;
       }
     > = {};
 
@@ -62,11 +64,12 @@ export default function RosterActivityContent({
           weekNumber: pick.weekNumber,
           activeFromWeek: pick.activeFromWeek,
           activeThroughWeek: pick.activeThroughWeek,
+          final3Position: pick.final3Position,
         };
       }
     });
 
-    roster.forEach((slot) => {
+    roster.forEach((slot, index) => {
       if (slot.contestant && !map[slot.contestant.id]) {
         map[slot.contestant.id] = {
           contestant: slot.contestant,
@@ -74,6 +77,7 @@ export default function RosterActivityContent({
           weekNumber: slot.weekNumber,
           activeFromWeek: slot.activeFromWeek,
           activeThroughWeek: slot.activeThroughWeek,
+          final3Position: slot.type === 'final3' ? index + 1 : undefined,
         };
       }
     });
@@ -82,7 +86,6 @@ export default function RosterActivityContent({
   }, [picks, roster]);
   const contestantIds = useMemo(() => Object.keys(contestantMetadata), [contestantMetadata]);
 
-  // Fetch activity events using SWR
   const activityKey = createKey(
     'roster-activity',
     seasonId,
@@ -97,7 +100,6 @@ export default function RosterActivityContent({
     createdAt: string;
   }>>(activityKey, fetcher);
 
-  // Calculate points for each event based on pick type (keep zero-point weeks so we can show Week N + empty state)
   const scoredActivityEvents = useMemo(() => {
     return rawEvents.map((event) => {
       const metadata = contestantMetadata[event.contestantId];
@@ -113,14 +115,15 @@ export default function RosterActivityContent({
           weekNumber: metadata.weekNumber,
           activeFromWeek: metadata.activeFromWeek,
           activeThroughWeek: metadata.activeThroughWeek,
+          final3Position: metadata.final3Position,
+          seasonCompleted,
         }
       );
 
       return { ...event, points };
     });
-  }, [rawEvents, contestantMetadata]);
+  }, [rawEvents, contestantMetadata, seasonCompleted]);
 
-  // Group scored events by week (includes weeks where the roster earned 0 pts)
   const eventsByWeek = useMemo<Record<number, ActivityEvent[]>>(() => {
     const grouped: Record<number, ActivityEvent[]> = {};
     scoredActivityEvents.forEach((event) => {
@@ -132,18 +135,20 @@ export default function RosterActivityContent({
     return grouped;
   }, [scoredActivityEvents]);
 
-  // Format activity type for display
   const formatActivityType = (type: string): string => {
     const typeMap: Record<string, string> = {
-      'tribal_immunity': 'Tribal Immunity',
-      'individual_immunity': 'Individual Immunity',
-      'found_immunity_idol': 'Found Immunity Idol',
-      'immunity': 'Immunity',
-      'eliminated': 'Eliminated',
-      'medical_evacuated': 'Medical Evacuation',
-      'made_merge': 'Made Merge',
-      'made_final_three': 'Made Final 3',
-      'made_jury': 'Made Jury',
+      tribal_immunity: 'Tribal Immunity',
+      individual_immunity: 'Individual Immunity',
+      found_immunity_idol: 'Found Immunity Idol',
+      immunity: 'Immunity',
+      eliminated: 'Eliminated',
+      medical_evacuated: 'Medical Evacuation',
+      made_merge: 'Made Merge',
+      made_final_three: 'Made Final 3',
+      made_jury: 'Made Jury',
+      finished_first: 'Finished as Sole Survivor',
+      finished_second: 'Finished as Runner Up',
+      finished_third: 'Finished in Third Place',
     };
     return typeMap[type] || type;
   };
@@ -219,9 +224,9 @@ export default function RosterActivityContent({
                               />
                               <AvatarFallback className="text-xs bg-slate-700 text-white">
                                 {contestant.name
-                                  .split(" ")
+                                  .split(' ')
                                   .map((n) => n[0])
-                                  .join("")}
+                                  .join('')}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
@@ -250,4 +255,3 @@ export default function RosterActivityContent({
     </div>
   );
 }
-
