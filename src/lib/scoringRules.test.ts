@@ -65,9 +65,9 @@ describe('scoreActivityEventForPick', () => {
       expect(scoreActivityEventForPick(ev(5, 'immunity'), windowPick)).toBe(10);
     });
 
-    it('scores made_jury and made_final_three as 5 inside window', () => {
+    it('scores made_jury as 5 and made_final_three as 10 inside window', () => {
       expect(scoreActivityEventForPick(ev(8, 'made_jury'), windowPick)).toBe(5);
-      expect(scoreActivityEventForPick(ev(9, 'made_final_three'), windowPick)).toBe(5);
+      expect(scoreActivityEventForPick(ev(9, 'made_final_three'), windowPick)).toBe(10);
     });
 
     it('allows open-ended window when activeThroughWeek is undefined', () => {

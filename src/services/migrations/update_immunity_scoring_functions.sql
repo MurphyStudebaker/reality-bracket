@@ -42,8 +42,15 @@ AS $$
           AND rp.active_from_week IS NOT NULL
           AND ae.week_number >= rp.active_from_week
           AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
-          AND ae.activity_type IN ('made_jury', 'made_final_three')
+          AND ae.activity_type = 'made_jury'
           THEN 5
+
+        WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
+          AND ae.activity_type = 'made_final_three'
+          THEN 10
 
         ELSE 0
       END
@@ -99,8 +106,15 @@ AS $$
           AND rp.active_from_week IS NOT NULL
           AND ae.week_number >= rp.active_from_week
           AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
-          AND ae.activity_type IN ('made_jury', 'made_final_three')
+          AND ae.activity_type = 'made_jury'
           THEN 5
+
+        WHEN rp.pick_type = 'final3'
+          AND rp.active_from_week IS NOT NULL
+          AND ae.week_number >= rp.active_from_week
+          AND (rp.active_through_week IS NULL OR ae.week_number <= rp.active_through_week)
+          AND ae.activity_type = 'made_final_three'
+          THEN 10
 
         ELSE 0
       END

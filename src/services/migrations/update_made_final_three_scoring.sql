@@ -1,45 +1,4 @@
--- Add predicted-order scoring for completed seasons.
--- Awards +15 when a user's active Final 3 pick finishes in the predicted slot.
--- Requires finale activity events: finished_first, finished_second, finished_third.
-
--- Extend activity_events.activity_type constraint if present
-DO $$
-DECLARE
-  constraint_name TEXT;
-BEGIN
-  SELECT con.conname INTO constraint_name
-  FROM pg_constraint con
-  JOIN pg_class rel ON rel.oid = con.conrelid
-  JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
-  WHERE nsp.nspname = 'public'
-    AND rel.relname = 'activity_events'
-    AND con.contype = 'c'
-    AND pg_get_constraintdef(con.oid) ILIKE '%activity_type%'
-  LIMIT 1;
-
-  IF constraint_name IS NOT NULL THEN
-    EXECUTE format('ALTER TABLE public.activity_events DROP CONSTRAINT %I', constraint_name);
-  END IF;
-END $$;
-
-ALTER TABLE public.activity_events
-ADD CONSTRAINT activity_events_activity_type_check
-CHECK (
-  activity_type IN (
-    'tribal_immunity',
-    'individual_immunity',
-    'found_immunity_idol',
-    'immunity',
-    'eliminated',
-    'medical_evacuated',
-    'made_merge',
-    'made_final_three',
-    'made_jury',
-    'finished_first',
-    'finished_second',
-    'finished_third'
-  )
-);
+-- made_jury: 5 points, made_final_three: 10 points (final3 picks)
 
 CREATE OR REPLACE FUNCTION public.calculate_pick_points(
   p_user_id UUID,
