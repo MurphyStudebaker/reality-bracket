@@ -4,6 +4,7 @@ export interface League {
   id: number;
   name: string;
   season: string;
+  seasonStatus?: 'active' | 'completed' | 'upcoming';
   members?: number;
   rank?: number;
   points?: number;

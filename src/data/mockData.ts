@@ -14,6 +14,7 @@ export interface League {
   id: string;
   name: string;
   season: string;
+  seasonStatus?: 'active' | 'completed' | 'upcoming';
   memberCount: number;
   inviteCode: string;
 }

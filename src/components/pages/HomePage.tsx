@@ -5,6 +5,7 @@ import JoinLeagueModal from '../modals/JoinLeagueModal';
 import CreateLeagueModal from '../modals/CreateLeagueModal';
 import LoggedOutScreen from './LoggedOutScreen';
 import type { League as UILeague } from '../../models/types';
+import ArchivedLeaguesSection from '../common/ArchivedLeaguesSection';
 
 type League = { id: string; name: string; season: string; memberCount: number; inviteCode: string };
 
@@ -39,6 +40,43 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
     }
     prevIsCreatingRef.current = viewModel.isCreatingLeague;
   }, [viewModel.isCreatingLeague, viewModel.createLeagueError, isCreateModalOpen]);
+
+  const renderLeagueCard = (league: UILeague) => (
+    <div
+      key={league.id}
+      onClick={() => {
+        const leagueUuid = viewModel.getLeagueUuid(league.id) || league.id.toString();
+        onLeagueClick({
+          id: leagueUuid,
+          name: league.name,
+          season: league.season,
+          memberCount: league.members || 0,
+          inviteCode: '',
+        });
+      }}
+      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl p-4 lg:p-5 hover:border-slate-700 transition-all text-left cursor-pointer"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-lg">{league.name}</h4>
+        <span className="px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-300">
+          {league.members || 0} members
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-400">{league.season}</p>
+        {league.rank && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Rank #{league.rank}</span>
+            {league.points !== undefined && (
+              <span className="text-xs font-semibold" style={{ color: '#BFFF0B' }}>
+                {league.points} pts
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Show logged out screen if not authenticated
   if (!isAuthenticated) {
@@ -110,44 +148,12 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
               You haven't joined any leagues yet. Create or join a league to get started!
             </p>
           ) : (
-            viewModel.myLeagues.map((league) => (
-              <div
-                key={league.id}
-                onClick={() => {
-                  // Get the actual UUID for this league
-                  const leagueUuid = viewModel.getLeagueUuid(league.id) || league.id.toString();
-                  // Convert UI League format to expected League format
-                  onLeagueClick({
-                    id: leagueUuid,
-                    name: league.name,
-                    season: league.season,
-                    memberCount: league.members || 0,
-                    inviteCode: '', // We don't have invite code in UI League type, but it's not displayed anyway
-                  });
-                }}
-                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl p-4 lg:p-5 hover:border-slate-700 transition-all text-left"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-lg">{league.name}</h4>
-                  <span className="px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-300">
-                    {league.members || 0} members
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-400">{league.season}</p>
-                  {league.rank && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">Rank #{league.rank}</span>
-                      {league.points !== undefined && (
-                        <span className="text-xs font-semibold" style={{ color: '#BFFF0B' }}>
-                          {league.points} pts
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
+            <>
+              {viewModel.activeMyLeagues.map(renderLeagueCard)}
+              <ArchivedLeaguesSection count={viewModel.archivedMyLeagues.length}>
+                {viewModel.archivedMyLeagues.map(renderLeagueCard)}
+              </ArchivedLeaguesSection>
+            </>
           )}
         </div>
       </div>

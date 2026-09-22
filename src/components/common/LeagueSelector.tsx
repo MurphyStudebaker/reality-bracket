@@ -1,4 +1,5 @@
 import { X, Check } from 'lucide-react';
+import { sortLeaguesBySeasonStatus, type DbSeasonStatus } from '../../utils/leagueSeasonStatus';
 
 interface League {
   id: string;
@@ -6,6 +7,7 @@ interface League {
   season: string;
   seasonNumber: number;
   seasonName: string;
+  seasonStatus?: DbSeasonStatus;
   memberCount: number;
   inviteCode: string;
 }
@@ -26,6 +28,9 @@ export default function LeagueSelector({
   onSelectLeague,
 }: LeagueSelectorProps) {
   if (!isOpen) return null;
+
+  const sortedLeagues = sortLeaguesBySeasonStatus(leagues);
+  let hasShownInactiveDivider = false;
 
   return (
     <>
@@ -55,26 +60,44 @@ export default function LeagueSelector({
           {/* League List */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-2">
-              {leagues.map((league) => {
+              {sortedLeagues.map((league) => {
+                const isInactive = league.seasonStatus === 'completed';
+                const showInactiveDivider =
+                  isInactive && !hasShownInactiveDivider;
+                if (showInactiveDivider) {
+                  hasShownInactiveDivider = true;
+                }
+
                 const isSelected = league.id === selectedLeague.id;
                 return (
-                  <button
-                    key={league.id}
-                    onClick={() => onSelectLeague(league)}
-                    className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-teal-600 to-emerald-600'
-                        : 'bg-slate-800/50 hover:bg-slate-800'
-                    }`}
-                  >
-                    <div className="flex-1 text-left">
-                      <p className="mb-1">{league.name}</p>
-                      <p className="text-sm text-slate-400">{league.memberCount} members</p>
-                    </div>
-                    {isSelected && (
-                      <Check className="w-5 h-5" style={{ color: '#BFFF0B' }} />
-                    )}
-                  </button>
+                  <div key={league.id}>
+                    {showInactiveDivider ? (
+                      <p className="px-1 pb-2 pt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Inactive seasons
+                      </p>
+                    ) : null}
+                    <button
+                      onClick={() => onSelectLeague(league)}
+                      className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-teal-600 to-emerald-600'
+                          : isInactive
+                            ? 'bg-slate-900/60 hover:bg-slate-800/80 opacity-80'
+                            : 'bg-slate-800/50 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="flex-1 text-left">
+                        <p className="mb-1">{league.name}</p>
+                        <p className="text-sm text-slate-400">
+                          {league.seasonName || league.season} · {league.memberCount}{' '}
+                          members
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <Check className="w-5 h-5" style={{ color: '#BFFF0B' }} />
+                      )}
+                    </button>
+                  </div>
                 );
               })}
             </div>
