@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles/activity-events.css'
+import './styles/loading-skeletons.css'
 import App from './App.jsx'
 import { PostHogProvider } from '@posthog/react'
 import { SWRConfig } from "swr";

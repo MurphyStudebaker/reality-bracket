@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from '../ui/alert';
 import BaseModal from './BaseModal';
 import type { Season } from '../../models/types';
 import { getRandomLeagueNamePun } from '../../models/constants';
+import { SeasonSelectFieldSkeleton } from '../loading/LoadingSkeletons';
 
 interface CreateLeagueModalProps {
   isOpen: boolean;
@@ -127,9 +128,7 @@ export default function CreateLeagueModal({
       <div>
         <label className="block mb-2 text-sm text-slate-400">Select Season</label>
         {isLoadingSeasons ? (
-          <div className="w-full px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-400">
-            Loading seasons...
-          </div>
+          <SeasonSelectFieldSkeleton />
         ) : !seasons || seasons.length === 0 ? (
           <div className="w-full px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-400">
             No seasons available

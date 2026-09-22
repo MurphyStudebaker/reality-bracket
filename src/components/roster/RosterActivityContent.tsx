@@ -10,6 +10,7 @@ import {
 } from '../../lib/activityEventDisplay';
 import { Check } from 'lucide-react';
 import ActivityEventIcon from '../activity/ActivityEventIcon';
+import { RosterActivityListSkeleton } from '../loading/LoadingSkeletons';
 
 interface ActivityEvent {
   id: string;
@@ -161,7 +162,7 @@ export default function RosterActivityContent({
       </div>
 
       {isLoading ? (
-        <div className="text-center text-slate-400 py-4 text-sm">Loading activity...</div>
+        <RosterActivityListSkeleton />
       ) : scoredActivityEvents.length === 0 ? (
         <div className="text-center text-slate-400 py-4 text-sm">
           No activity events yet. Points will appear here as events are added.

@@ -7,6 +7,7 @@ import {
   getActivityEventDisplayPoints,
 } from '../../lib/activityEventDisplay';
 import ActivityEventIcon from '../activity/ActivityEventIcon';
+import { LeagueActivityFeedSkeleton } from '../loading/LoadingSkeletons';
 
 interface ActivityEvent {
   id: string;
@@ -130,9 +131,7 @@ export default function LeagueActivityContent({
   }, [rosterPicks, activityEvents, seasonId, seasonCompleted]);
 
   if (isLoading) {
-    return (
-      <div className="text-center text-slate-400 py-8 text-sm">Loading activity...</div>
-    );
+    return <LeagueActivityFeedSkeleton />;
   }
 
   if (activityEvents.length === 0) {

@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { SupabaseService } from '../../services/supabaseService';
 import { scoreActivityEventForPick } from '../../lib/scoringRules';
 import type { RosterSlot } from '../../models';
+import { RosterActivityListSkeleton } from '../loading/LoadingSkeletons';
 
 interface ActivityEvent {
   id: string;
@@ -138,7 +139,7 @@ export default function RosterActivityCard({ roster, seasonId, userId, leagueId 
           </AccordionTrigger>
           <AccordionContent className="px-6 pb-6">
             {isLoading ? (
-              <div className="text-center text-slate-400 py-4">Loading activity...</div>
+              <RosterActivityListSkeleton />
             ) : activityEvents.length === 0 ? (
               <div className="text-center text-slate-400 py-4">
                 No activity events yet. Points will appear here as events are added.

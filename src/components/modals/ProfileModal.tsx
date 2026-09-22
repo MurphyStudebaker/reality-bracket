@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import BaseModal from './BaseModal';
 import type { League } from '../../data/mockData';
 import { partitionLeaguesBySeasonStatus } from '../../utils/leagueSeasonStatus';
+import { AuthFormSkeleton, ProfileLeaguesListSkeleton } from '../loading/LoadingSkeletons';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -256,9 +257,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   const profileBody = (
     auth.isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-slate-400">Loading...</div>
-              </div>
+              <AuthFormSkeleton />
             ) : !auth.isAuthenticated ? (
               /* Login/Signup Forms or Password Reset/Update */
               <div className="space-y-8">
@@ -657,7 +656,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             <div className="mb-8">
               <h3 className="text-sm text-slate-400 mb-4 font-semibold">LEAGUE DISPLAY NAMES</h3>
               {isLoadingLeagues ? (
-                <div className="text-center text-slate-400 py-4">Loading leagues...</div>
+                <ProfileLeaguesListSkeleton />
               ) : activeLeagues.length === 0 ? (
                 <div className="text-center text-slate-400 py-4">
                   <p>No leagues found.</p>

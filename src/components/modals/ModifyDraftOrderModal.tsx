@@ -6,6 +6,7 @@ import BaseModal from './BaseModal';
 import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import { Button } from '../ui/button';
+import { DraftOrderMembersSkeleton } from '../loading/LoadingSkeletons';
 
 interface DraftOrderMember {
   id: string;
@@ -276,9 +277,7 @@ export default function ModifyDraftOrderModal({
   );
 
   const bodyContent = isLoading ? (
-    <div className="flex items-center justify-center py-8">
-      <div className="text-slate-400">Loading members...</div>
-    </div>
+    <DraftOrderMembersSkeleton count={Math.max(members.length, 4)} />
   ) : members.length === 0 ? (
     <div className="text-center text-slate-400 py-8">
       <p>No league members found.</p>
