@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
 import { scoreActivityEventForPick } from '../../lib/scoringRules';
+import {
+  formatActivityType,
+  getActivityEventDisplayPoints,
+} from '../../lib/activityEventDisplay';
+import ActivityEventIcon from '../activity/ActivityEventIcon';
 
 interface ActivityEvent {
   id: string;
@@ -12,14 +17,10 @@ interface ActivityEvent {
   createdAt: string;
 }
 
-interface UserActivity {
+interface EventAwardee {
   userId: string;
   displayName: string;
-  contestantName: string;
-  pickType: 'final3' | 'boot';
-  activityType: string;
   points: number;
-  weekNumber: number;
 }
 
 interface LeagueActivityContentProps {
@@ -54,9 +55,9 @@ export default function LeagueActivityContent({
 
   const isLoading = isLoadingPicks || isLoadingEvents;
 
-  const userActivities = useMemo(() => {
-    if (!leagueId || !seasonId || rosterPicks.length === 0 || activityEvents.length === 0) {
-      return [];
+  const weekEventRows = useMemo(() => {
+    if (!seasonId || activityEvents.length === 0) {
+      return {} as Record<number, Array<{ event: ActivityEvent; awardees: EventAwardee[] }>>;
     }
 
     const contestantPicksMap: Record<string, Array<{
@@ -84,10 +85,11 @@ export default function LeagueActivityContent({
       });
     });
 
-    const activities: UserActivity[] = [];
+    const grouped: Record<number, Array<{ event: ActivityEvent; awardees: EventAwardee[] }>> = {};
 
     activityEvents.forEach(event => {
       const picks = contestantPicksMap[event.contestantId] || [];
+      const awardees: EventAwardee[] = [];
 
       picks.forEach(pick => {
         const points = scoreActivityEventForPick(
@@ -103,50 +105,29 @@ export default function LeagueActivityContent({
         );
 
         if (points > 0) {
-          activities.push({
+          awardees.push({
             userId: pick.userId,
             displayName: pick.displayName,
-            contestantName: event.contestantName,
-            pickType: pick.pickType,
-            activityType: event.activityType,
             points,
-            weekNumber: event.weekNumber,
           });
         }
       });
-    });
 
-    return activities;
-  }, [rosterPicks, activityEvents, leagueId, seasonId, seasonCompleted]);
-
-  const activitiesByWeek = useMemo(() => {
-    const grouped: Record<number, UserActivity[]> = {};
-    userActivities.forEach(activity => {
-      if (!grouped[activity.weekNumber]) {
-        grouped[activity.weekNumber] = [];
+      if (!grouped[event.weekNumber]) {
+        grouped[event.weekNumber] = [];
       }
-      grouped[activity.weekNumber].push(activity);
+      grouped[event.weekNumber].push({ event, awardees });
     });
-    return grouped;
-  }, [userActivities]);
 
-  const formatActivityType = (type: string): string => {
-    const typeMap: Record<string, string> = {
-      tribal_immunity: 'Tribal Immunity',
-      individual_immunity: 'Individual Immunity',
-      found_immunity_idol: 'Found Immunity Idol',
-      immunity: 'Immunity',
-      eliminated: 'Eliminated',
-      medical_evacuated: 'Medical Evacuation',
-      made_merge: 'Made Merge',
-      made_final_three: 'Made Final 3',
-      made_jury: 'Made Jury',
-      finished_first: 'Finished as Sole Survivor',
-      finished_second: 'Finished as Runner Up',
-      finished_third: 'Finished in Third Place',
-    };
-    return typeMap[type] || type;
-  };
+    Object.values(grouped).forEach(rows => {
+      rows.sort(
+        (a, b) =>
+          new Date(b.event.createdAt).getTime() - new Date(a.event.createdAt).getTime()
+      );
+    });
+
+    return grouped;
+  }, [rosterPicks, activityEvents, seasonId, seasonCompleted]);
 
   if (isLoading) {
     return (
@@ -154,7 +135,7 @@ export default function LeagueActivityContent({
     );
   }
 
-  if (userActivities.length === 0) {
+  if (activityEvents.length === 0) {
     return (
       <div className="text-center text-slate-400 py-8 text-sm">
         No activity events yet. Points will appear here as events are added.
@@ -162,62 +143,61 @@ export default function LeagueActivityContent({
     );
   }
 
-  const weeks = Object.keys(activitiesByWeek)
+  const weeks = Object.keys(weekEventRows)
     .map(Number)
     .sort((a, b) => b - a);
 
   return (
-    <div className="w-full space-y-6 flex flex-col gap-4">
+    <div className="w-full space-y-8">
       {weeks.map(week => {
-        const weekActivities = activitiesByWeek[week];
-
-        const byUser: Record<string, UserActivity[]> = {};
-        weekActivities.forEach(activity => {
-          if (!byUser[activity.userId]) {
-            byUser[activity.userId] = [];
-          }
-          byUser[activity.userId].push(activity);
-        });
+        const rows = weekEventRows[week];
 
         return (
-          <div key={week} className="">
-            <h3 className="text-lg font-semibold text-white mb-8">Week {week}</h3>
-            <div className="h4"></div>
-            <div className="space-y-3">
-              {Object.entries(byUser).map(([userId, activities]) => {
-                const totalPoints = activities.reduce((sum, a) => sum + a.points, 0);
-                const displayName = activities[0].displayName;
+          <div key={week}>
+            <h3 className="text-base font-semibold text-white mb-4">Week {week}</h3>
+            <div className="space-y-4">
+              {rows.map(({ event, awardees }) => {
+                const displayPoints = getActivityEventDisplayPoints(event.activityType);
 
                 return (
-                  <div
-                    key={userId}
-                    className="bg-slate-800/50 rounded-lg p-3 border border-slate-700"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold text-white">{displayName}</h4>
-                      <div className="text-sm font-semibold" style={{ color: '#BFFF0B' }}>
-                        +{totalPoints} pts
+                  <div key={event.id} className="activity-league-event-card">
+                    <div className="activity-league-event-body">
+                      <ActivityEventIcon activityType={event.activityType} active />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="activity-event-type-badge">
+                            {formatActivityType(event.activityType)}
+                          </span>
+                          {displayPoints != null && (
+                            <span className="activity-event-base-points">+{displayPoints} pts</span>
+                          )}
+                        </div>
+                        <p className="activity-contestant-name">{event.contestantName}</p>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      {activities.map((activity, idx) => (
-                        <div
-                          key={`${activity.userId}-${activity.contestantName}-${activity.activityType}-${idx}`}
-                          className="flex items-center justify-between py-1.5 px-2 bg-slate-800/50 rounded"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs text-white">
-                              {activity.contestantName} - {formatActivityType(activity.activityType)}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {activity.pickType === 'boot' ? 'Next Boot' : 'Final 3'}
-                            </div>
-                          </div>
-                          <div className="text-xs font-semibold ml-2 flex-shrink-0" style={{ color: '#BFFF0B' }}>
-                            +{activity.points} pts
+
+                    <div className="activity-league-event-footer">
+                      {awardees.length === 0 ? (
+                        <p className="text-sm text-slate-400" style={{ fontStyle: 'italic' }}>
+                          No one in this league earned points from this event
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-400">Points awarded to:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {awardees.map(awardee => (
+                              <div
+                                key={`${event.id}-${awardee.userId}`}
+                                className="activity-member-chip"
+                              >
+                                <span className="activity-member-chip__name">
+                                  {awardee.displayName}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 );

@@ -1,10 +1,15 @@
-import React from 'react';
 import { useMemo } from 'react';
 import useSWR from 'swr';
 import { fetcher, createKey } from '../../lib/swr';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { Contestant, RosterPickWithContestant, RosterSlot } from '../../models';
 import { scoreActivityEventForPick } from '../../lib/scoringRules';
+import {
+  formatActivityType,
+  getActivityEventDisplayPoints,
+  isBootCorrectPrediction,
+} from '../../lib/activityEventDisplay';
+import { Check } from 'lucide-react';
+import ActivityEventIcon from '../activity/ActivityEventIcon';
 
 interface ActivityEvent {
   id: string;
@@ -135,23 +140,10 @@ export default function RosterActivityContent({
     return grouped;
   }, [scoredActivityEvents]);
 
-  const formatActivityType = (type: string): string => {
-    const typeMap: Record<string, string> = {
-      tribal_immunity: 'Tribal Immunity',
-      individual_immunity: 'Individual Immunity',
-      found_immunity_idol: 'Found Immunity Idol',
-      immunity: 'Immunity',
-      eliminated: 'Eliminated',
-      medical_evacuated: 'Medical Evacuation',
-      made_merge: 'Made Merge',
-      made_final_three: 'Made Final 3',
-      made_jury: 'Made Jury',
-      finished_first: 'Finished as Sole Survivor',
-      finished_second: 'Finished as Runner Up',
-      finished_third: 'Finished in Third Place',
-    };
-    return typeMap[type] || type;
-  };
+  const totalPoints = useMemo(
+    () => scoredActivityEvents.reduce((sum, event) => sum + event.points, 0),
+    [scoredActivityEvents]
+  );
 
   if (contestantIds.length === 0) {
     return (
@@ -163,6 +155,11 @@ export default function RosterActivityContent({
 
   return (
     <div className="w-full">
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <h2 className="text-xl sm:text-2xl font-semibold text-white">Weekly Points History</h2>
+        <span className="activity-roster-header-total">Total: {totalPoints} pts</span>
+      </div>
+
       {isLoading ? (
         <div className="text-center text-slate-400 py-4 text-sm">Loading activity...</div>
       ) : scoredActivityEvents.length === 0 ? (
@@ -170,31 +167,26 @@ export default function RosterActivityContent({
           No activity events yet. Points will appear here as events are added.
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {Object.keys(eventsByWeek)
             .map(Number)
             .sort((a, b) => b - a)
             .map((weekNumber) => {
               const events = eventsByWeek[weekNumber];
-              const totalPoints = events.reduce((sum, event) => sum + event.points, 0);
-              const sortedEvents = [...events]
-                .filter((e) => e.points > 0)
-                .sort((a, b) => {
-                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                });
+              const weekTotal = events.reduce((sum, event) => sum + event.points, 0);
+              const sortedEvents = [...events].sort((a, b) => {
+                if (a.points !== b.points) {
+                  return b.points - a.points;
+                }
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              });
 
               return (
                 <div key={weekNumber}>
-                  <div className="flex items-center justify-between mb-2 gap-5">
-                    <h3 className="text-lg font-semibold text-white">Week {weekNumber}</h3>
-                    {totalPoints > 0 ? (
-                      <div className="text-sm font-semibold shrink-0" style={{ color: '#BFFF0B' }}>
-                        +{totalPoints} pts
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-400 text-right">
-                        No points awarded to your roster this week.
-                      </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-slate-400">Week {weekNumber}</h3>
+                    {weekTotal > 0 && (
+                      <span className="activity-roster-week-total">+{weekTotal} pts</span>
                     )}
                   </div>
                   <div className="space-y-3">
@@ -203,46 +195,64 @@ export default function RosterActivityContent({
                       const contestant = metadata?.contestant;
                       const pickType = metadata?.pickType;
                       const weekPickNumber = metadata?.weekNumber;
+                      const awarded = event.points > 0;
+                      const displayPoints = getActivityEventDisplayPoints(event.activityType);
+                      const showCorrectPrediction =
+                        awarded &&
+                        pickType &&
+                        isBootCorrectPrediction(
+                          event.activityType,
+                          pickType,
+                          weekPickNumber,
+                          event.weekNumber
+                        );
 
                       if (!contestant || !pickType) return null;
 
                       return (
                         <div
                           key={event.id}
-                          className="bg-slate-800/50 rounded-lg p-3 border border-slate-700"
+                          className={`activity-roster-row ${
+                            awarded ? 'activity-roster-row--awarded' : 'activity-roster-row--muted'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <Avatar
-                              className={`w-10 h-10 border-2 flex-shrink-0 ${
-                                pickType === 'boot' ? 'border-red-500' : 'border-[#BFFF0B]'
+                          <ActivityEventIcon
+                            activityType={event.activityType}
+                            active={awarded}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                              <span
+                                className={`activity-roster-event-tag ${
+                                  awarded
+                                    ? 'activity-roster-event-tag--awarded'
+                                    : 'activity-roster-event-tag--muted'
+                                }`}
+                              >
+                                {formatActivityType(event.activityType)}
+                              </span>
+                            </div>
+                            <p
+                              className={`text-sm sm:text-base font-semibold truncate ${
+                                awarded ? 'text-white' : 'text-slate-400'
                               }`}
                             >
-                              <AvatarImage
-                                src={contestant.imageUrl}
-                                alt={contestant.name}
-                                className="object-cover"
-                              />
-                              <AvatarFallback className="text-xs bg-slate-700 text-white">
-                                {contestant.name
-                                  .split(' ')
-                                  .map((n) => n[0])
-                                  .join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm text-white">
-                                {contestant.name} - {formatActivityType(event.activityType)}
-                              </div>
-                              <div className="text-xs text-slate-400">
-                                {pickType === 'boot'
-                                  ? `Next Boot${weekPickNumber ? ` • Week ${weekPickNumber}` : ''}`
-                                  : 'Final 3'}
-                              </div>
-                            </div>
-                            <div className="text-xs font-semibold ml-2 flex-shrink-0" style={{ color: '#BFFF0B' }}>
-                              +{event.points} pts
-                            </div>
+                              {contestant.name}
+                            </p>
+                            {showCorrectPrediction && (
+                              <p className="activity-correct-prediction">
+                                <Check width={14} height={14} strokeWidth={3} />
+                                Correct prediction!
+                              </p>
+                            )}
                           </div>
+                          {awarded ? (
+                            <span className="activity-points-pill activity-points-pill--md">
+                              +{event.points}
+                            </span>
+                          ) : (
+                            <span className="activity-roster-zero-badge">0</span>
+                          )}
                         </div>
                       );
                     })}
