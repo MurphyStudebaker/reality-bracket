@@ -14,6 +14,11 @@ import type {
   ContestantScore,
 } from '../models';
 import type { League as UILeague } from '../models/types';
+import {
+  seasonStatusSortPriority,
+  sortLeaguesBySeasonStatus,
+  type DbSeasonStatus,
+} from '../utils/leagueSeasonStatus';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dummy.supabase.co';
@@ -324,6 +329,7 @@ export class SupabaseService {
   static async getUILeaguesByUserId(userId: string): Promise<Array<{
     league: League;
     seasonName: string;
+    seasonStatus: DbSeasonStatus;
     memberCount: number;
     userRank: number;
     userPoints: number;
@@ -345,7 +351,8 @@ export class SupabaseService {
             seasons!inner(
               id,
               name,
-              number
+              number,
+              status
             )
           )
         `)
@@ -411,6 +418,7 @@ export class SupabaseService {
               status: league.status as 'not_started' | 'draft_open' | 'draft_closed' | 'completed' | undefined,
             },
             seasonName: season.name || `Season ${season.number}`,
+            seasonStatus: season.status as DbSeasonStatus,
             memberCount,
             userRank,
             userPoints,
@@ -418,8 +426,15 @@ export class SupabaseService {
         })
       );
 
-      // Sort results by points (descending) for consistent ordering
-      result.sort((a, b) => b.userPoints - a.userPoints);
+      result.sort((a, b) => {
+        const statusDiff =
+          seasonStatusSortPriority(a.seasonStatus) -
+          seasonStatusSortPriority(b.seasonStatus);
+        if (statusDiff !== 0) {
+          return statusDiff;
+        }
+        return b.userPoints - a.userPoints;
+      });
 
       return result;
     } catch (error) {
@@ -435,6 +450,7 @@ export class SupabaseService {
     season: string;
     seasonNumber: number;
     seasonName: string;
+    seasonStatus: DbSeasonStatus;
     memberCount: number;
     inviteCode: string;
     createdById: string;
@@ -500,7 +516,7 @@ export class SupabaseService {
             season: season.name || `Season ${season.number}`,
             seasonNumber: season.number,
             seasonName: season.name || `Season ${season.number}`,
-            seasonStatus: season.status as 'active' | 'completed' | 'upcoming',
+            seasonStatus: season.status as DbSeasonStatus,
             memberCount,
             inviteCode: league.invite_code,
             createdById: league.created_by_id || '',
@@ -508,7 +524,7 @@ export class SupabaseService {
         })
       );
 
-      return result;
+      return sortLeaguesBySeasonStatus(result);
     } catch (error) {
       console.error('Error in getLeaguesForSelector:', error);
       return [];

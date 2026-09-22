@@ -8,6 +8,7 @@ import { leagueNameSuggestions } from "../models/mockData";
 import { SupabaseService } from "../services/supabaseService";
 import { fetcher, createKey } from "../lib/swr";
 import type { Season as DbSeason } from "../models";
+import { partitionLeaguesBySeasonStatus } from "../utils/leagueSeasonStatus";
 
 export const useHomeViewModel = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -45,9 +46,15 @@ export const useHomeViewModel = () => {
   );
 
   // Transform leagues data
-  const { myLeagues, leagueUuidMap } = useMemo(() => {
+  const { myLeagues, activeMyLeagues, archivedMyLeagues, leagueUuidMap } =
+    useMemo(() => {
     if (!uiLeaguesData || uiLeaguesData.length === 0) {
-      return { myLeagues: [], leagueUuidMap: new Map<number, string>() };
+      return {
+        myLeagues: [],
+        activeMyLeagues: [],
+        archivedMyLeagues: [],
+        leagueUuidMap: new Map<number, string>(),
+      };
     }
 
     const uuidMap = new Map<number, string>();
@@ -58,13 +65,22 @@ export const useHomeViewModel = () => {
         id: numericId,
         name: data.league.name,
         season: data.seasonName,
+        seasonStatus: data.seasonStatus,
         members: data.memberCount,
         rank: data.userRank,
         points: data.userPoints,
       };
     });
 
-    return { myLeagues: transformedLeagues, leagueUuidMap: uuidMap };
+    const { activeLeagues, archivedLeagues } =
+      partitionLeaguesBySeasonStatus(transformedLeagues);
+
+    return {
+      myLeagues: transformedLeagues,
+      activeMyLeagues: activeLeagues,
+      archivedMyLeagues: archivedLeagues,
+      leagueUuidMap: uuidMap,
+    };
   }, [uiLeaguesData]);
 
   // Helper function to refresh leagues list
@@ -285,6 +301,8 @@ export const useHomeViewModel = () => {
 
     // Data
     myLeagues,
+    activeMyLeagues,
+    archivedMyLeagues,
     isLoadingLeagues,
     getLeagueUuid,
     seasons,

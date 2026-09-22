@@ -11,6 +11,7 @@ import { Button } from '../ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import BaseModal from './BaseModal';
 import type { League } from '../../data/mockData';
+import { partitionLeaguesBySeasonStatus } from '../../utils/leagueSeasonStatus';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -66,10 +67,14 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   // Fetch leagues using SWR
   const leaguesKey = createKey('leagues-selector', auth.user?.id);
-  const { data: leagues = [], isLoading: isLoadingLeagues } = useSWR<League[]>(
-    isOpen && auth.isAuthenticated ? leaguesKey : null,
-    fetcher
-  );
+  const { data: leagues = [], isLoading: isLoadingLeagues } = useSWR<
+    (League & {
+      seasonName?: string;
+      seasonStatus?: 'active' | 'completed' | 'upcoming';
+    })[]
+  >(isOpen && auth.isAuthenticated ? leaguesKey : null, fetcher);
+
+  const { activeLeagues } = partitionLeaguesBySeasonStatus(leagues);
 
   // Fetch display names using SWR
   const displayNamesKey = createKey('league-display-names', auth.user?.id);
@@ -653,26 +658,23 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <h3 className="text-sm text-slate-400 mb-4 font-semibold">LEAGUE DISPLAY NAMES</h3>
               {isLoadingLeagues ? (
                 <div className="text-center text-slate-400 py-4">Loading leagues...</div>
-              ) : leagues.length === 0 ? (
+              ) : activeLeagues.length === 0 ? (
                 <div className="text-center text-slate-400 py-4">
                   <p>No leagues found.</p>
                   <p className="text-xs mt-2">Join or create a league to set display names.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {leagues.map((league) => {
+                  {activeLeagues.map((league) => {
                     const isEditing = editingLeagueId === league.id;
-                    // Use display name if set, otherwise show placeholder
                     const currentDisplayName = leagueDisplayNames[league.id] || 'Not set';
+                    const seasonLabel = league.seasonName || league.season;
                     return (
-                      <div
-                        key={league.id}
-                        className="rounded-xl p-5 py-2"
-                      >
+                      <div key={league.id} className="rounded-xl p-5 py-2">
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div className="flex-1 min-w-0">
                             <p className="truncate">{league.name}</p>
-                            <p className="text-xs text-slate-400">{league.season}</p>
+                            <p className="text-xs text-slate-400">{seasonLabel}</p>
                           </div>
 
                           {isEditing ? (
