@@ -4,6 +4,7 @@ import { useHomeViewModel } from '../../viewmodels/useHomeViewModel';
 import JoinLeagueModal from '../modals/JoinLeagueModal';
 import CreateLeagueModal from '../modals/CreateLeagueModal';
 import LoggedOutScreen from './LoggedOutScreen';
+import { HomeLeaguesListSkeleton } from '../loading/LoadingSkeletons';
 import type { League as UILeague } from '../../models/types';
 import ArchivedLeaguesSection from '../common/ArchivedLeaguesSection';
 
@@ -142,7 +143,7 @@ export default function HomePage({ isAuthenticated, onLeagueClick, onSignInClick
         <h3 className="text-xl mb-4">My Leagues</h3>
         <div className="space-y-3 flex flex-col gap-4 py-4">
           {viewModel.isLoadingLeagues ? (
-            <p className="text-slate-400 text-center py-4">Loading your leagues...</p>
+            <HomeLeaguesListSkeleton />
           ) : viewModel.myLeagues.length === 0 ? (
             <p className="text-slate-400 text-center py-4">
               You haven't joined any leagues yet. Create or join a league to get started!

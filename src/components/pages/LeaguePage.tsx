@@ -13,6 +13,11 @@ import { SupabaseService } from '../../services/supabaseService';
 import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import type { Contestant, LeagueStanding, Season } from '../../models';
+import {
+  LeaguePageSkeleton,
+  PodiumSkeleton,
+  StandingsTableRowsSkeleton,
+} from '../loading/LoadingSkeletons';
 
 interface League {
   id: string;
@@ -605,11 +610,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
   };
 
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto p-4 lg:p-8">
-        <div className="text-center text-slate-400">Loading leagues...</div>
-      </div>
-    );
+    return <LeaguePageSkeleton />;
   }
 
   if (!selectedLeague || leagues.length === 0) {
@@ -847,7 +848,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
         <h2 className="text-2xl mb-6">Top 3</h2>
         
         {isLoadingStandings ? (
-          <div className="text-center text-slate-400 py-8">Loading standings...</div>
+          <PodiumSkeleton />
         ) : topThree.length === 0 ? (
           <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8">
             {/* Empty 2nd Place */}
@@ -1070,7 +1071,7 @@ export default function LeaguePage({ selectedLeague, onLeagueChange, onNavigateT
           {/* Standings List */}
           <div>
             {isLoadingStandings ? (
-              <div className="p-8 text-center text-slate-400">Loading standings...</div>
+              <StandingsTableRowsSkeleton rows={6} />
             ) : standings.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
                 <p>No standings available yet.</p>

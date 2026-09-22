@@ -5,6 +5,7 @@ import { SupabaseService } from '../../services/supabaseService';
 import RosterPicksDisplay from '../roster/RosterPicksDisplay';
 import BaseModal from './BaseModal';
 import type { RosterPick, RosterSlot } from '../../models';
+import { RosterPicksDisplaySkeleton } from '../loading/LoadingSkeletons';
 
 interface UserRosterModalProps {
   isOpen: boolean;
@@ -149,9 +150,7 @@ export default function UserRosterModal({
       bodyClassName="flex-1 overflow-y-auto p-4 lg:p-6"
     >
             {isLoadingRoster ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-slate-400">Loading roster...</div>
-              </div>
+              <RosterPicksDisplaySkeleton />
             ) : (
               <RosterPicksDisplay
                 final3Slots={final3Slots}

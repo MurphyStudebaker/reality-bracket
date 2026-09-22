@@ -11,6 +11,7 @@ import { fetcher, createKey } from '../../lib/swr';
 import { useRosterViewModel } from '../../viewmodels/roster.viewmodel';
 import { useAuthViewModel } from '../../viewmodels/auth.viewmodel';
 import type { Contestant, RosterSlot, Season } from '../../models';
+import { RosterPageSkeleton } from '../loading/LoadingSkeletons';
 
 interface League {
   id: string;
@@ -384,11 +385,7 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
   };
 
   if (isLoadingLeagues || isLoadingRoster) {
-    return (
-      <div className="max-w-4xl mx-auto p-4 lg:p-8">
-        <div className="text-center text-slate-400">Loading...</div>
-      </div>
-    );
+    return <RosterPageSkeleton />;
   }
 
   if (!selectedLeague || leagues.length === 0) {
