@@ -501,9 +501,6 @@ export default function RosterPage({ selectedLeague, onLeagueChange }: RosterPag
       />
 
       <div className="mt-10">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-2xl">Roster Activity</h2>
-        </div>
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-4 sm:p-6">
           <RosterActivityContent
             roster={roster}
