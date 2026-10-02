@@ -38,11 +38,20 @@ describe('scoreActivityEventForPick', () => {
       activeThroughWeek: 10,
     };
 
-    it('scores 0 when activeFromWeek is undefined (matches RPC IS NOT NULL gate)', () => {
+    it('scores 0 when activeFromWeek is undefined (draft not finalized / RPC IS NOT NULL gate)', () => {
       expect(
         scoreActivityEventForPick(ev(5, 'tribal_immunity'), {
           pickType: 'final3',
           activeThroughWeek: undefined,
+        })
+      ).toBe(0);
+    });
+
+    it('scores 0 for pre-draft weeks when league finalized at week 2 (late draft)', () => {
+      expect(
+        scoreActivityEventForPick(ev(1, 'tribal_immunity'), {
+          pickType: 'final3',
+          activeFromWeek: 2,
         })
       ).toBe(0);
     });
@@ -83,6 +92,23 @@ describe('scoreActivityEventForPick', () => {
     it('scores at window boundaries (inclusive)', () => {
       expect(scoreActivityEventForPick(ev(2, 'tribal_immunity'), windowPick)).toBe(5);
       expect(scoreActivityEventForPick(ev(10, 'tribal_immunity'), windowPick)).toBe(5);
+    });
+
+    it('medevac replacement window unchanged (starts after evacuation week)', () => {
+      expect(
+        scoreActivityEventForPick(ev(5, 'tribal_immunity'), {
+          pickType: 'final3',
+          activeFromWeek: 6,
+          activeThroughWeek: undefined,
+        })
+      ).toBe(0);
+      expect(
+        scoreActivityEventForPick(ev(6, 'tribal_immunity'), {
+          pickType: 'final3',
+          activeFromWeek: 6,
+          activeThroughWeek: undefined,
+        })
+      ).toBe(5);
     });
   });
 
