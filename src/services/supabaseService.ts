@@ -903,7 +903,7 @@ export class SupabaseService {
           pick_type: pickType,
           week_number: weekNumber ?? null,
           final3_position: pickType === 'final3' ? (final3Position ?? null) : null,
-          active_from_week: pickType === 'final3' ? (activeFromWeek ?? 1) : null,
+          active_from_week: pickType === 'final3' ? (activeFromWeek ?? null) : null,
           active_through_week: pickType === 'final3' ? (activeThroughWeek ?? null) : null,
         })
         .select()
@@ -1381,6 +1381,13 @@ export class SupabaseService {
             console.error('Error completing draft:', updateError);
             return false;
           }
+
+          try {
+            await this.finalizeLeagueFinal3Scoring(leagueId);
+          } catch (finalizeError) {
+            console.error('Error finalizing Final 3 scoring after draft:', finalizeError);
+          }
+
           return true;
         }
 
@@ -2003,6 +2010,22 @@ export class SupabaseService {
     } catch (error) {
       console.error('Error in getActivityEventsForSeason:', error);
       return [];
+    }
+  }
+
+  static async finalizeLeagueFinal3Scoring(leagueId: string): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('finalize_league_final3_scoring', {
+        p_league_id: leagueId,
+      });
+
+      if (error) {
+        console.error('Error finalizing league Final 3 scoring:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in finalizeLeagueFinal3Scoring:', error);
+      throw error;
     }
   }
 
